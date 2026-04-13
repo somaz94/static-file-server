@@ -181,6 +181,74 @@ func TestRenderListing(t *testing.T) {
 	if strings.Contains(body, `class="parent"`) {
 		t.Error("root listing should not have parent link")
 	}
+
+	// Check accessibility: main landmark
+	if !strings.Contains(body, "<main") {
+		t.Error("listing should use <main> landmark")
+	}
+
+	// Check accessibility: breadcrumb aria-label
+	if !strings.Contains(body, `aria-label="Breadcrumb"`) {
+		t.Error("breadcrumb nav should have aria-label")
+	}
+
+	// Check accessibility: search aria-label
+	if !strings.Contains(body, `aria-label="Filter files"`) {
+		t.Error("search input should have aria-label")
+	}
+
+	// Check accessibility: aria-live on search count
+	if !strings.Contains(body, `aria-live="polite"`) {
+		t.Error("search count should have aria-live")
+	}
+
+	// Check accessibility: preview overlay role=dialog
+	if !strings.Contains(body, `role="dialog"`) {
+		t.Error("preview overlay should have role=dialog")
+	}
+
+	// Check accessibility: aria-sort on table headers
+	if !strings.Contains(body, `aria-sort=`) {
+		t.Error("table headers should have aria-sort attribute")
+	}
+
+	// Check filter chips
+	if !strings.Contains(body, `id="filterChips"`) {
+		t.Error("listing should contain filter chips")
+	}
+
+	// Check empty state element
+	if !strings.Contains(body, `id="emptyState"`) {
+		t.Error("listing should contain empty state element")
+	}
+
+	// Check file extension badge
+	if !strings.Contains(body, `class="ext-badge"`) {
+		t.Error("listing should contain file extension badges")
+	}
+	if !strings.Contains(body, ".go") {
+		t.Error("listing should show .go extension badge")
+	}
+
+	// Check copy path button
+	if !strings.Contains(body, `class="copy-btn"`) {
+		t.Error("listing should contain copy path buttons")
+	}
+
+	// Check sticky table header
+	if !strings.Contains(body, "position: sticky") {
+		t.Error("table header should have position: sticky")
+	}
+
+	// Check breadcrumb current page (root = Home should be current)
+	if !strings.Contains(body, `aria-current="page"`) {
+		t.Error("last breadcrumb should have aria-current=page")
+	}
+
+	// Check text preview for code files
+	if !strings.Contains(body, `data-preview="text"`) {
+		t.Error("code/doc files should have data-preview=text")
+	}
 }
 
 func TestRenderListingWithParent(t *testing.T) {
@@ -202,6 +270,92 @@ func TestRenderListingWithParent(t *testing.T) {
 	if !strings.Contains(body, "..") {
 		t.Error("parent link should contain ..")
 	}
+
+	// Breadcrumb: "Home" should be a link, "sub" should be current page
+	if !strings.Contains(body, `<a href="/">Home</a>`) {
+		t.Error("breadcrumb Home should be a link in subdirectory")
+	}
+	if !strings.Contains(body, `aria-current="page"`) {
+		t.Error("last breadcrumb should have aria-current=page")
+	}
+}
+
+func TestRenderListingRawExt(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "app.tsx"), []byte("export default"), 0644)
+	os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("key: val"), 0644)
+	os.WriteFile(filepath.Join(dir, "noext"), []byte("binary"), 0644)
+	os.MkdirAll(filepath.Join(dir, "docs"), 0755)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	renderListing(w, req, dir, "/", false)
+	body := w.Body.String()
+
+	// Files with extensions should have ext-badge
+	if !strings.Contains(body, ".tsx") {
+		t.Error("listing should show .tsx extension badge")
+	}
+	if !strings.Contains(body, ".yaml") {
+		t.Error("listing should show .yaml extension badge")
+	}
+
+	// File without extension should not have ext-badge after its name
+	// (the ext-badge element is only rendered when RawExt is non-empty)
+	// Directories should never have ext-badge
+}
+
+func TestRenderListingPreviewTypes(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "doc.pdf"), []byte("pdf"), 0644)
+	os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("text"), 0644)
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("go"), 0644)
+	os.WriteFile(filepath.Join(dir, "conf.json"), []byte("json"), 0644)
+	os.WriteFile(filepath.Join(dir, "video.mp4"), []byte("video"), 0644)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	renderListing(w, req, dir, "/", false)
+	body := w.Body.String()
+
+	// PDF should have preview
+	if !strings.Contains(body, `data-preview="pdf"`) {
+		t.Error("PDF files should have data-preview=pdf")
+	}
+
+	// Text/code/config files should have text preview
+	textCount := strings.Count(body, `data-preview="text"`)
+	if textCount < 3 {
+		t.Errorf("expected at least 3 text previews (txt, go, json), got %d", textCount)
+	}
+
+	// Video should have video preview
+	if !strings.Contains(body, `data-preview="video"`) {
+		t.Error("video files should have data-preview=video")
+	}
+}
+
+func TestRenderListingDataType(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "folder"), 0755)
+	os.WriteFile(filepath.Join(dir, "pic.png"), []byte("img"), 0644)
+	os.WriteFile(filepath.Join(dir, "src.go"), []byte("code"), 0644)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	renderListing(w, req, dir, "/", false)
+	body := w.Body.String()
+
+	// Rows should have data-type for filter chips
+	if !strings.Contains(body, `data-type="dir"`) {
+		t.Error("directory rows should have data-type=dir")
+	}
+	if !strings.Contains(body, `data-type="image"`) {
+		t.Error("image rows should have data-type=image")
+	}
+	if !strings.Contains(body, `data-type="code"`) {
+		t.Error("code rows should have data-type=code")
+	}
 }
 
 func TestRenderListingInvalidDir(t *testing.T) {
@@ -211,5 +365,178 @@ func TestRenderListingInvalidDir(t *testing.T) {
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected 500 for invalid dir, got %d", w.Code)
+	}
+}
+
+func TestRenderListingNewFeatures(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "sub"), 0755)
+	os.WriteFile(filepath.Join(dir, "photo.jpg"), []byte("jpg"), 0644)
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("go"), 0644)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	renderListing(w, req, dir, "/", false)
+	body := w.Body.String()
+
+	// Grid view toggle
+	if !strings.Contains(body, `id="viewToggle"`) {
+		t.Error("listing should contain view toggle button")
+	}
+	if !strings.Contains(body, `id="gridContainer"`) {
+		t.Error("listing should contain grid container")
+	}
+
+	// Keyboard shortcuts help
+	if !strings.Contains(body, `id="helpOverlay"`) {
+		t.Error("listing should contain keyboard shortcuts help overlay")
+	}
+	if !strings.Contains(body, "Keyboard Shortcuts") {
+		t.Error("help modal should contain 'Keyboard Shortcuts' heading")
+	}
+
+	// Scroll to top button
+	if !strings.Contains(body, `id="scrollTop"`) {
+		t.Error("listing should contain scroll to top button")
+	}
+
+	// Selection bar
+	if !strings.Contains(body, `id="selectionBar"`) {
+		t.Error("listing should contain selection bar")
+	}
+
+	// Select all checkbox
+	if !strings.Contains(body, `id="selectAll"`) {
+		t.Error("listing should contain select all checkbox")
+	}
+
+	// Row checkboxes
+	if !strings.Contains(body, `class="row-checkbox"`) {
+		t.Error("listing should contain row checkboxes")
+	}
+
+	// Preview navigation buttons
+	if !strings.Contains(body, `id="prevBtn"`) {
+		t.Error("listing should contain preview prev button")
+	}
+	if !strings.Contains(body, `id="nextBtn"`) {
+		t.Error("listing should contain preview next button")
+	}
+
+	// Preview download button
+	if !strings.Contains(body, `id="previewDownload"`) {
+		t.Error("listing should contain preview download button")
+	}
+
+	// Fade-in animation
+	if !strings.Contains(body, "fadeIn") {
+		t.Error("listing should contain fadeIn animation")
+	}
+
+	// data-href attribute for grid view
+	if !strings.Contains(body, `data-href=`) {
+		t.Error("rows should have data-href for grid view support")
+	}
+}
+
+func TestBatchDownload(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "file1.txt"), []byte("hello"), 0644)
+	os.WriteFile(filepath.Join(dir, "file2.txt"), []byte("world"), 0644)
+	os.MkdirAll(filepath.Join(dir, "subdir"), 0755)
+	os.WriteFile(filepath.Join(dir, ".hidden"), []byte("secret"), 0644)
+
+	t.Run("valid request", func(t *testing.T) {
+		body := strings.NewReader(`{"files":["file1.txt","file2.txt"]}`)
+		req := httptest.NewRequest("POST", "/?batch=zip", body)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		handleBatchDownload(w, req, dir, false)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", w.Code)
+		}
+		if ct := w.Header().Get("Content-Type"); ct != "application/zip" {
+			t.Errorf("expected application/zip, got %s", ct)
+		}
+		if w.Body.Len() == 0 {
+			t.Error("zip body should not be empty")
+		}
+	})
+
+	t.Run("empty files", func(t *testing.T) {
+		body := strings.NewReader(`{"files":[]}`)
+		req := httptest.NewRequest("POST", "/?batch=zip", body)
+		w := httptest.NewRecorder()
+		handleBatchDownload(w, req, dir, false)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400 for empty files, got %d", w.Code)
+		}
+	})
+
+	t.Run("GET not allowed", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/?batch=zip", nil)
+		w := httptest.NewRecorder()
+		handleBatchDownload(w, req, dir, false)
+
+		if w.Code != http.StatusMethodNotAllowed {
+			t.Errorf("expected 405 for GET, got %d", w.Code)
+		}
+	})
+
+	t.Run("path traversal rejected", func(t *testing.T) {
+		body := strings.NewReader(`{"files":["../etc/passwd","file1.txt"]}`)
+		req := httptest.NewRequest("POST", "/?batch=zip", body)
+		w := httptest.NewRecorder()
+		handleBatchDownload(w, req, dir, false)
+
+		// Should still succeed but only include file1.txt
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", w.Code)
+		}
+	})
+
+	t.Run("hidden files excluded when hideDot", func(t *testing.T) {
+		body := strings.NewReader(`{"files":[".hidden","file1.txt"]}`)
+		req := httptest.NewRequest("POST", "/?batch=zip", body)
+		w := httptest.NewRecorder()
+		handleBatchDownload(w, req, dir, true)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", w.Code)
+		}
+	})
+
+	t.Run("directories skipped", func(t *testing.T) {
+		body := strings.NewReader(`{"files":["subdir","file1.txt"]}`)
+		req := httptest.NewRequest("POST", "/?batch=zip", body)
+		w := httptest.NewRecorder()
+		handleBatchDownload(w, req, dir, false)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", w.Code)
+		}
+	})
+}
+
+func TestBatchDownloadIntegration(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("aaa"), 0644)
+	os.WriteFile(filepath.Join(dir, "b.txt"), []byte("bbb"), 0644)
+
+	handler := listing(dir, false)
+
+	body := strings.NewReader(`{"files":["a.txt","b.txt"]}`)
+	req := httptest.NewRequest("POST", "/?batch=zip", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/zip" {
+		t.Errorf("expected application/zip, got %s", ct)
 	}
 }

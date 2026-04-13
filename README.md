@@ -17,6 +17,8 @@ A lightweight, zero-dependency static file server written in Go with a modern di
 ![Dark Mode](https://img.shields.io/badge/Dark_Mode-blue?logo=files&logoColor=white)
 ![File Preview](https://img.shields.io/badge/File_Preview-green?logo=files&logoColor=white)
 ![Search Filter](https://img.shields.io/badge/Search_Filter-green?logo=files&logoColor=white)
+![Grid View](https://img.shields.io/badge/Grid_View-green?logo=files&logoColor=white)
+![Batch Download](https://img.shields.io/badge/Batch_Download-green?logo=files&logoColor=white)
 ![CORS](https://img.shields.io/badge/CORS-orange?logo=files&logoColor=white)
 ![TLS](https://img.shields.io/badge/TLS%2FHTTPS-orange?logo=files&logoColor=white)
 ![Helm](https://img.shields.io/badge/Helm_Chart-0F1689?logo=helm&logoColor=white)
@@ -28,11 +30,25 @@ A lightweight, zero-dependency static file server written in Go with a modern di
 
 - Modern, responsive directory listing with dark mode support
 - Dark/light mode toggle (manual switch + system preference detection)
+- Grid/list view toggle with image thumbnail cards (`g` to switch)
 - Extension-based file icons (13 categories: image, video, audio, code, config, etc.)
+- File extension badges (`.go`, `.py`, `.tsx`, etc.)
 - Client-side search/filter with keyboard shortcuts (`/` to focus, `Esc` to clear)
-- Inline preview for images, video, and audio files
-- Column sorting (name, size, modified date)
-- Breadcrumb navigation
+- Search text highlight and file type filter chips with counts
+- URL hash state for shareable search/filter links
+- Inline preview for images, video, audio, PDF, and text/code files
+- Preview gallery navigation (prev/next with `←` `→` keys)
+- Image preview zoom (click to toggle, scroll wheel to scale)
+- Text/code preview with line numbers
+- Download button in preview modal
+- Column sorting with localStorage persistence
+- Relative time display ("3h ago") with absolute time tooltip
+- Breadcrumb navigation with current page indicator
+- Keyboard navigation (arrow keys, Enter, Space to select, `?` for help)
+- Multi-file selection with batch ZIP download
+- Copy file path to clipboard (hover to reveal)
+- Scroll to top button for long listings
+- Row fade-in animation on page load
 - File stats in footer (total files, directories, combined size)
 - Version display in footer
 - `/healthz` health check endpoint (bypasses all middleware)
@@ -89,7 +105,7 @@ docker run -d \
   --name static-file-server \
   -p 8080:8080 \
   -v /path/to/files:/web:ro \
-  somaz940/static-file-server:v0.3.0
+  somaz940/static-file-server:v0.4.0
 ```
 
 <br/>
@@ -180,11 +196,19 @@ metrics: true
 
 The directory listing features a modern, responsive design:
 
-- **Dark mode**: Automatically follows system preference
-- **File icons**: 13 categories with distinct colors (folder, image, video, audio, PDF, doc, spreadsheet, slides, archive, code, config, binary, font)
-- **Search**: Real-time filter with keyboard shortcut (`/` to focus, `Esc` to clear)
-- **Preview**: Click image/video/audio files to preview in a modal overlay
-- **Sorting**: Click column headers to sort by name, size, or date
+- **Dark mode**: Automatically follows system preference, manual toggle
+- **Grid/List view**: Toggle between table and card layout (`g` key), image thumbnails in grid mode
+- **File icons**: 13 categories with distinct colors + file extension badges
+- **Search**: Real-time filter with highlight (`/` to focus, `Esc` to clear), URL hash for shareable links
+- **Filter chips**: Category filters (All, Folders, Images, Code, etc.) with file count badges
+- **Preview**: Image/video/audio/PDF/text/code files with gallery navigation (`←` `→`), zoom, line numbers, download
+- **Sorting**: Click column headers to sort by name, size, or date (persisted in localStorage)
+- **Keyboard navigation**: Arrow keys to move, Enter to open, Space to select, `?` for shortcuts help
+- **Multi-select**: Checkbox selection with batch ZIP download
+- **Accessibility**: ARIA attributes, focus trap, keyboard-only navigation support
+- **Copy path**: Hover to reveal clipboard copy button
+- **Relative time**: "3h ago" display with absolute time tooltip
+- **Animations**: Row fade-in on load, sort arrow transitions
 
 <br/>
 
@@ -225,7 +249,7 @@ For full deployment instructions, see [Deployment Guide](docs/deployment.md).
 
 ```bash
 make version                      # Show version across all files
-make bump-version VERSION=v0.3.0  # Bump version in all files at once
+make bump-version VERSION=v0.4.0  # Bump version in all files at once
 ```
 
 See [Version Guide](docs/version.md) for the release process.

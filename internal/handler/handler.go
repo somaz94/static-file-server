@@ -184,6 +184,12 @@ func listing(folder string, hideDot bool) http.HandlerFunc {
 			return
 		}
 
+		// Batch download: POST ?batch=zip
+		if r.URL.Query().Get("batch") == "zip" && info.IsDir() {
+			handleBatchDownload(w, r, fpath, hideDot)
+			return
+		}
+
 		if info.IsDir() {
 			renderListing(w, r, fpath, r.URL.Path, hideDot)
 			return
@@ -206,6 +212,12 @@ func listingAndIndex(folder string, hideDot bool) http.HandlerFunc {
 		info, err := os.Stat(fpath)
 		if err != nil {
 			http.NotFound(w, r)
+			return
+		}
+
+		// Batch download: POST ?batch=zip
+		if r.URL.Query().Get("batch") == "zip" && info.IsDir() {
+			handleBatchDownload(w, r, fpath, hideDot)
 			return
 		}
 

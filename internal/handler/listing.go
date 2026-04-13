@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"archive/zip"
 	"bytes"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 	"os"
 	"path"
@@ -19,8 +22,12 @@ import (
 //go:embed templates/listing.html
 var templateFS embed.FS
 
+var listingFuncs = template.FuncMap{
+	"add": func(a, b int) int { return a + b },
+}
+
 var listingTmpl = template.Must(
-	template.ParseFS(templateFS, "templates/listing.html"),
+	template.New("").Funcs(listingFuncs).ParseFS(templateFS, "templates/listing.html"),
 )
 
 // ListingData holds the data passed to the directory listing template.
@@ -52,6 +59,7 @@ type ListingEntry struct {
 	ModTime     string
 	ModTimeUnix int64
 	Ext         string // file category for icon selection (e.g. "image", "code", "archive")
+	RawExt      string // raw file extension without dot (e.g. "go", "py", "tsx")
 }
 
 // fileCategory returns a category string based on file extension for icon display.
@@ -137,8 +145,12 @@ func renderListing(w http.ResponseWriter, _ *http.Request, fsPath, urlPath strin
 		}
 
 		ext := ""
+		rawExt := ""
 		if !e.IsDir() {
 			ext = fileCategory(name)
+			if fe := filepath.Ext(name); fe != "" {
+				rawExt = strings.TrimPrefix(fe, ".") // "go", "py", etc.
+			}
 		}
 
 		listing = append(listing, ListingEntry{
@@ -150,6 +162,7 @@ func renderListing(w http.ResponseWriter, _ *http.Request, fsPath, urlPath strin
 			ModTime:     info.ModTime().Format(time.DateTime),
 			ModTimeUnix: info.ModTime().Unix(),
 			Ext:         ext,
+			RawExt:      rawExt,
 		})
 	}
 
@@ -201,6 +214,64 @@ func buildBreadcrumbs(urlPath string) []Breadcrumb {
 	}
 
 	return crumbs
+}
+
+// batchDownloadRequest is the JSON body for batch download.
+type batchDownloadRequest struct {
+	Files []string `json:"files"`
+}
+
+// handleBatchDownload creates a zip archive of the requested files and streams it.
+func handleBatchDownload(w http.ResponseWriter, r *http.Request, fsPath string, hideDot bool) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req batchDownloadRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Files) == 0 {
+		http.Error(w, "No files specified", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="download.zip"`)
+
+	zw := zip.NewWriter(w)
+	defer zw.Close()
+
+	for _, name := range req.Files {
+		// Prevent path traversal: reject names with slashes or ".."
+		if strings.ContainsAny(name, "/\\") || name == ".." || name == "." {
+			continue
+		}
+		if hideDot && strings.HasPrefix(name, ".") {
+			continue
+		}
+
+		fpath := filepath.Join(fsPath, name)
+		info, err := os.Stat(fpath)
+		if err != nil || info.IsDir() {
+			continue
+		}
+
+		fw, err := zw.Create(name)
+		if err != nil {
+			continue
+		}
+
+		f, err := os.Open(fpath)
+		if err != nil {
+			continue
+		}
+		io.Copy(fw, f)
+		f.Close()
+	}
 }
 
 // formatSize converts bytes to a human-readable size string.
