@@ -1,13 +1,37 @@
+# Build and test binaries
 bin/
 dist/
-coverage.out
-coverage.html
-testdata/
-*.md
+
+# Version control
 .git/
 .gitignore
-.dockerignore
-Dockerfile
-Dockerfile.cross
-Makefile
+
+# CI/CD
+.github/
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Helm charts
+helm/
+
+# Config and scripts (not needed for binary build)
 deploy/
+hack/
+scripts/
+testdata/
+
+# IDE
+.vscode/
+.idea/
+
+# Test files
+*_test.go
+coverage.out
+coverage.html
+
+# Docker artifacts
+Dockerfile.cross
+.dockerignore

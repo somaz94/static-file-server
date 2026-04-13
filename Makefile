@@ -1,34 +1,50 @@
+# Image URL to use all building/pushing image targets
+IMG ?= somaz940/static-file-server:v0.1.0
 APP_NAME := static-file-server
 MODULE := github.com/somaz94/static-file-server
 
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 LDFLAGS := -ldflags "\
-	-X $(MODULE)/internal/version.Version=$(VERSION) \
+	-X $(MODULE)/internal/version.Version=$(shell echo ${IMG} | cut -d: -f2) \
 	-X $(MODULE)/internal/version.GitCommit=$(GIT_COMMIT) \
 	-X $(MODULE)/internal/version.BuildDate=$(BUILD_DATE) \
 	-s -w"
 
-# Docker
-IMG ?= somaz940/$(APP_NAME):$(VERSION)
+# Container tool (docker or podman)
 CONTAINER_TOOL ?= docker
 
+# Docker build args
 DOCKER_BUILD_ARGS = \
-	--build-arg VERSION=$(VERSION) \
+	--build-arg VERSION=$(shell echo ${IMG} | cut -d: -f2) \
 	--build-arg GIT_COMMIT=$(GIT_COMMIT) \
 	--build-arg BUILD_DATE=$(BUILD_DATE)
 
-# Platforms for cross-compilation
+# Platforms for multi-arch builds
 PLATFORMS ?= linux/amd64,linux/arm64
 
-# Tools
-GOLANGCI_LINT_VERSION ?= v2.1.6
+# Get the currently used golang install path
+ifeq (,$(shell go env GOBIN))
+GOBIN=$(shell go env GOPATH)/bin
+else
+GOBIN=$(shell go env GOBIN)
+endif
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
+
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+## Tool Versions
+GOLANGCI_LINT_VERSION ?= v2.1.6
+
+## Tool Binaries
+GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 
 # Deploy
 DEPLOY_NAME ?= $(APP_NAME)
@@ -36,55 +52,60 @@ DEPLOY_PORT ?= 8080
 DEPLOY_VOLUME ?= $(CURDIR)/testdata
 K8S_NAMESPACE ?= default
 
-.PHONY: help build test test-unit test-integration cover clean install uninstall fmt vet run \
-	lint lint-fix version \
-	docker-build docker-push docker-buildx docker-buildx-tag docker-buildx-latest \
-	cross-build \
-	deploy undeploy test-deploy deploy-k8s undeploy-k8s
+.PHONY: all
+all: build
 
 ##@ General
 
+.PHONY: help
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) }' $(MAKEFILE_LIST)
 
-version: ## Print version information
-	@echo "Version:    $(VERSION)"
-	@echo "Git Commit: $(GIT_COMMIT)"
-	@echo "Build Date: $(BUILD_DATE)"
-
 ##@ Development
 
+.PHONY: build
 build: ## Build binary to bin/
 	go build $(LDFLAGS) -o bin/$(APP_NAME) ./cmd/
 
+.PHONY: run
 run: build ## Build and run the server
 	./bin/$(APP_NAME)
 
-fmt: ## Format Go source code
+.PHONY: fmt
+fmt: ## Run go fmt against code
 	go fmt ./...
 
-vet: ## Run go vet
+.PHONY: vet
+vet: ## Run go vet against code
 	go vet ./...
 
-lint: ## Run golangci-lint
-	@$(call go-install-tool,golangci-lint,github.com/golangci/golangci-lint/v2/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
-	golangci-lint run ./...
+.PHONY: lint
+lint: golangci-lint ## Run golangci-lint linter
+	$(GOLANGCI_LINT) run
 
-lint-fix: ## Run golangci-lint with --fix
-	@$(call go-install-tool,golangci-lint,github.com/golangci/golangci-lint/v2/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
-	golangci-lint run --fix ./...
+.PHONY: lint-fix
+lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
+	$(GOLANGCI_LINT) run --fix
 
 ##@ Testing
 
+.PHONY: test
 test: ## Run all tests with race detection and coverage
 	go test ./... -v -race -cover
 
+.PHONY: test-unit
 test-unit: ## Run unit tests only (internal packages)
 	go test ./internal/... -v -race -cover
 
+.PHONY: test-integration
 test-integration: ## Run integration tests only
 	go test -v -race -run TestIntegration ./...
 
+.PHONY: test-helm
+test-helm: ## Run Helm chart tests (lint, template render)
+	@bash hack/test-helm.sh
+
+.PHONY: cover
 cover: ## Generate HTML coverage report
 	go test ./... -coverprofile=coverage.out
 	go tool cover -html=coverage.out -o coverage.html
@@ -92,12 +113,15 @@ cover: ## Generate HTML coverage report
 
 ##@ Build
 
+.PHONY: install
 install: build ## Install binary to /usr/local/bin
 	cp bin/$(APP_NAME) /usr/local/bin/$(APP_NAME)
 
+.PHONY: uninstall
 uninstall: ## Remove binary from /usr/local/bin
 	rm -f /usr/local/bin/$(APP_NAME)
 
+.PHONY: cross-build
 cross-build: ## Build for multiple OS/arch (output: dist/)
 	@mkdir -p dist
 	@for platform in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do \
@@ -112,12 +136,15 @@ cross-build: ## Build for multiple OS/arch (output: dist/)
 
 ##@ Docker
 
+.PHONY: docker-build
 docker-build: ## Build docker image
 	$(CONTAINER_TOOL) build $(DOCKER_BUILD_ARGS) -t ${IMG} .
 
+.PHONY: docker-push
 docker-push: ## Push docker image
 	$(CONTAINER_TOOL) push ${IMG}
 
+.PHONY: docker-buildx-tag
 docker-buildx-tag: ## Build and push multi-arch image with version tag
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
 	- $(CONTAINER_TOOL) buildx create --name $(APP_NAME)-builder
@@ -129,6 +156,7 @@ docker-buildx-tag: ## Build and push multi-arch image with version tag
 	- $(CONTAINER_TOOL) buildx rm $(APP_NAME)-builder
 	rm Dockerfile.cross
 
+.PHONY: docker-buildx-latest
 docker-buildx-latest: ## Build and push multi-arch image with latest tag
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
 	- $(CONTAINER_TOOL) buildx create --name $(APP_NAME)-builder
@@ -140,11 +168,50 @@ docker-buildx-latest: ## Build and push multi-arch image with latest tag
 	- $(CONTAINER_TOOL) buildx rm $(APP_NAME)-builder
 	rm Dockerfile.cross
 
+.PHONY: docker-buildx
 docker-buildx: ## Build and push both version and latest tags
 docker-buildx: docker-buildx-tag docker-buildx-latest
 
+##@ Version
+
+.PHONY: version
+version: ## Show current version across all files
+	@./hack/bump-version.sh --current
+
+VERSION ?=
+.PHONY: bump-version
+bump-version: ## Bump version across all files. Usage: make bump-version VERSION=v0.2.0
+	@if [ -z "$(VERSION)" ]; then echo "Usage: make bump-version VERSION=vX.Y.Z"; exit 1; fi
+	@./hack/bump-version.sh $(VERSION)
+
+##@ Workflow
+
+.PHONY: check-gh
+check-gh: ## Check if gh CLI is installed and authenticated
+	@command -v gh >/dev/null 2>&1 || { echo "\033[31m✗ gh CLI not installed. Run: brew install gh\033[0m"; exit 1; }
+	@gh auth status >/dev/null 2>&1 || { echo "\033[31m✗ gh CLI not authenticated. Run: gh auth login\033[0m"; exit 1; }
+	@echo "\033[32m✓ gh CLI ready\033[0m"
+
+.PHONY: branch
+branch: ## Create feature branch (usage: make branch name=search-filter)
+	@if [ -z "$(name)" ]; then echo "Usage: make branch name=<feature-name>"; exit 1; fi
+	git checkout main
+	git pull origin main
+	git checkout -b feat/$(name)
+	@echo "\033[32m✓ Branch feat/$(name) created\033[0m"
+
+.PHONY: pr
+pr: check-gh ## Run tests, push, and create PR (usage: make pr title="Add feature")
+	@if [ -z "$(title)" ]; then echo "Usage: make pr title=\"PR title\""; exit 1; fi
+	go test ./... -race -cover
+	go vet ./...
+	git push -u origin $$(git branch --show-current)
+	@./scripts/create-pr.sh "$(title)"
+	@echo "\033[32m✓ PR created\033[0m"
+
 ##@ Deploy
 
+.PHONY: deploy
 deploy: docker-build ## Deploy as Docker container (local)
 	@mkdir -p $(DEPLOY_VOLUME)
 	@echo "Stopping existing container (if any)..."
@@ -157,11 +224,13 @@ deploy: docker-build ## Deploy as Docker container (local)
 		${IMG}
 	@echo "Container $(DEPLOY_NAME) running at http://localhost:$(DEPLOY_PORT)"
 
+.PHONY: undeploy
 undeploy: ## Stop and remove Docker container
 	@echo "Stopping $(DEPLOY_NAME)..."
 	-$(CONTAINER_TOOL) rm -f $(DEPLOY_NAME) 2>/dev/null
 	@echo "Container $(DEPLOY_NAME) removed."
 
+.PHONY: test-deploy
 test-deploy: ## Smoke test against running container
 	@echo "Testing http://localhost:$(DEPLOY_PORT) ..."
 	@for i in 1 2 3 4 5; do \
@@ -176,12 +245,14 @@ test-deploy: ## Smoke test against running container
 	echo "FAIL: Server not responding"; \
 	exit 1
 
+.PHONY: deploy-k8s
 deploy-k8s: ## Deploy to Kubernetes cluster
 	@echo "Deploying to namespace $(K8S_NAMESPACE)..."
 	kubectl apply -f deploy/deployment.yaml -n $(K8S_NAMESPACE)
 	kubectl rollout status deployment/$(DEPLOY_NAME) -n $(K8S_NAMESPACE) --timeout=60s
 	@echo "Deployed. Service: kubectl get svc $(DEPLOY_NAME) -n $(K8S_NAMESPACE)"
 
+.PHONY: undeploy-k8s
 undeploy-k8s: ## Remove from Kubernetes cluster
 	@echo "Removing from namespace $(K8S_NAMESPACE)..."
 	kubectl delete -f deploy/deployment.yaml -n $(K8S_NAMESPACE) --ignore-not-found
@@ -189,13 +260,29 @@ undeploy-k8s: ## Remove from Kubernetes cluster
 
 ##@ Cleanup
 
+.PHONY: clean
 clean: ## Remove build artifacts
 	rm -rf bin/ dist/ coverage.out coverage.html
 
-# Helper function to install Go tools
+##@ Dependencies
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
+$(GOLANGCI_LINT): $(LOCALBIN)
+	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
+
+# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
+# $1 - target path with name of binary
+# $2 - package url which can be installed
+# $3 - specific version of package
 define go-install-tool
-@[ -f $$(which $(1)) ] || { \
-	echo "Installing $(1)@$(3)..." ;\
-	go install $(2)@$(3) ;\
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)@$(3)" ;\
+GOBIN=$(LOCALBIN) CGO_ENABLED=0 GOOS=$$(go env GOOS) GOARCH=$$(go env GOARCH) go install $(2)@$(3) ;\
+rm -rf $$TMP_DIR ;\
 }
 endef

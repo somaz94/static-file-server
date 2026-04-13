@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: somaz940/static-file-server
   pullPolicy: IfNotPresent
-  tag: ""  # Defaults to Chart.appVersion
+  tag: "v0.1.0"
 
 imagePullSecrets: []
 
