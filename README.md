@@ -146,7 +146,7 @@ internal/config/        # Configuration loading (env > YAML > defaults)
 internal/handler/       # HTTP middleware chain + directory listing
 internal/server/        # HTTP/HTTPS server lifecycle
 internal/version/       # Build version metadata (ldflags)
-deploy/                 # Kubernetes manifests + Helmfile examples
+deploy/                 # Kubernetes manifests + Helmfile examples (see [deploy/README.md](deploy/README.md))
 helm/                   # Helm chart (7 templates + 7 examples)
 docs/                   # Documentation
 hack/                   # Build/version scripts
@@ -180,6 +180,7 @@ See [Testing Guide](docs/test.md) for details.
 | [Configuration Guide](docs/configuration.md) | Environment variables, YAML config, serving modes, access control |
 | [UI Guide](docs/ui.md) | Directory listing features, keyboard shortcuts, accessibility |
 | [Deployment Guide](docs/deployment.md) | Binary, Docker, Kubernetes, Helm (with storage examples) |
+| [Deploy Examples](deploy/README.md) | Standalone K8s manifests, Helmfile configuration |
 | [CORS & Headers](docs/cors-and-headers.md) | CORS configuration and custom response headers |
 | [Testing Guide](docs/test.md) | Unit tests, integration tests, Helm tests, smoke tests |
 | [Version Guide](docs/version.md) | Version management, bump process, release workflow |
