@@ -2,11 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased (2026-04-13)
+## [v0.3.0](https://github.com/somaz94/static-file-server/compare/v0.2.0...v0.3.0) (2026-04-13)
+
+### Features
+
+- add gitlab-mirror workflow ([99b7c7f](https://github.com/somaz94/static-file-server/commit/99b7c7f6daef75a6bd4d4a787b8fdca258222b6a))
+- add SPA mode, gzip compression, metrics, JSON logging, dot file filtering ([dfadb89](https://github.com/somaz94/static-file-server/commit/dfadb8954c8fe9eeeb22e25a3ab067dc8c75e345))
 
 ### Bug Fixes
 
+- remove halverneus reference, fix MD5 comments to SHA-256, remove TLS10 support ([8d2ef5b](https://github.com/somaz94/static-file-server/commit/8d2ef5b831798db76121431cdfa27de97b9fe8ae))
 - **ci:** correct workflow_run trigger name in changelog-generator ([07c7aae](https://github.com/somaz94/static-file-server/commit/07c7aae7a9c96c0f3fcf2fd443931e09736640c3))
+
+### Code Refactoring
+
+- improve security, reliability, and observability ([603e8e7](https://github.com/somaz94/static-file-server/commit/603e8e72689452f5965ea887906778d37a5f121d))
+
+### Documentation
+
+- add SPA, compression, metrics, JSON logging, dot file config to helm/yaml/docs ([4d6739b](https://github.com/somaz94/static-file-server/commit/4d6739b5236564f6b153c842f22c5398b4feafb3))
+- add deployment smoke tests guide ([433a9b6](https://github.com/somaz94/static-file-server/commit/433a9b66c163285c45635584ceeb57a1bdc84e1a))
+
+### Tests
+
+- add graceful shutdown tests to reach 90%+ coverage ([807d73b](https://github.com/somaz94/static-file-server/commit/807d73b7b7e03661180e9c222cea6ce7d9f14fc9))
+
+### Chores
+
+- bump version to v0.3.0 ([ba4eea5](https://github.com/somaz94/static-file-server/commit/ba4eea51613160de5c7968dd5419d9043f0be55a))
 
 ### Contributors
 
