@@ -1,10 +1,27 @@
 # static-file-server
 
+![Top Language](https://img.shields.io/github/languages/top/somaz94/static-file-server?color=green&logo=go&logoColor=b)
+![static-file-server](https://img.shields.io/github/v/tag/somaz94/static-file-server?label=static-file-server&logo=go&logoColor=white)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Go Report Card](https://goreportcard.com/badge/github.com/somaz94/static-file-server)](https://goreportcard.com/report/github.com/somaz94/static-file-server)
+![Docker Pulls](https://img.shields.io/docker/pulls/somaz940/static-file-server?logo=docker&logoColor=white)
+![GitHub Stars](https://img.shields.io/github/stars/somaz94/static-file-server?style=social)
+
 A lightweight, zero-dependency static file server written in Go with a modern directory listing UI.
+
+Feature-compatible with [halverneus/static-file-server](https://github.com/halverneus/static-file-server) — drop-in replacement with enhanced UI.
 
 <br/>
 
 ## Features
+
+![Directory Listing](https://img.shields.io/badge/Directory_Listing-blue?logo=files&logoColor=white)
+![Dark Mode](https://img.shields.io/badge/Dark_Mode-blue?logo=files&logoColor=white)
+![File Preview](https://img.shields.io/badge/File_Preview-green?logo=files&logoColor=white)
+![Search Filter](https://img.shields.io/badge/Search_Filter-green?logo=files&logoColor=white)
+![CORS](https://img.shields.io/badge/CORS-orange?logo=files&logoColor=white)
+![TLS](https://img.shields.io/badge/TLS%2FHTTPS-orange?logo=files&logoColor=white)
+![Helm](https://img.shields.io/badge/Helm_Chart-0F1689?logo=helm&logoColor=white)
 
 - Modern, responsive directory listing with dark mode support
 - Extension-based file icons (13 categories: image, video, audio, code, config, etc.)
@@ -13,28 +30,75 @@ A lightweight, zero-dependency static file server written in Go with a modern di
 - Column sorting (name, size, modified date)
 - Breadcrumb navigation
 - CORS support
-- TLS/HTTPS
+- TLS/HTTPS with configurable minimum version
 - Access control (URL keys, referrer validation)
 - URL prefix routing
-- Index.html support
 - Four serving modes (basic / index / listing / both)
 - Debug request logging
+
+<br/>
+
+## Installation
+
+<br/>
+
+### Prerequisites
+- Go 1.24+ (for building from source)
+- Docker (optional, for container deployment)
+- Kubernetes v1.16+ (optional, for K8s/Helm deployment)
+
+<br/>
+
+### Option 1: Helm (Recommended)
+
+```bash
+# Add the Helm repository
+helm repo add static-file-server https://somaz94.github.io/static-file-server/helm-repo
+helm repo update
+
+# Install with default values
+helm install my-server static-file-server/static-file-server
+
+# Or install with custom values
+helm install my-server static-file-server/static-file-server \
+  --set config.cors=true \
+  --set persistence.enabled=true
+```
+
+For full Helm chart options, see [Helm Chart Documentation](docs/deployment.md#kubernetes-helm).
+
+<br/>
+
+### Option 2: Docker
+
+```bash
+docker run -d \
+  --name static-file-server \
+  -p 8080:8080 \
+  -v /path/to/files:/web:ro \
+  somaz940/static-file-server:v0.1.0
+```
+
+<br/>
+
+### Option 3: Build from Source
+
+```bash
+git clone https://github.com/somaz94/static-file-server.git
+cd static-file-server
+make build
+./bin/static-file-server
+```
 
 <br/>
 
 ## Quick Start
 
 ```bash
-# Build
-make build
+# With environment variables
+FOLDER=./public PORT=3000 CORS=true ./bin/static-file-server
 
-# Run (serves /web on :8080 by default)
-./bin/static-file-server
-
-# Or with environment variables
-FOLDER=./public PORT=3000 ./bin/static-file-server
-
-# Or with a config file
+# With a config file
 ./bin/static-file-server -c config.yaml
 ```
 
@@ -66,6 +130,8 @@ FOLDER=./public PORT=3000 ./bin/static-file-server
 | `REFERRERS` | string | `""` | Comma-separated allowed referrer prefixes |
 | `ACCESS_KEY` | string | `""` | URL parameter access key |
 
+For detailed configuration, see [Configuration Guide](docs/configuration.md).
+
 ### YAML Config Example
 
 ```yaml
@@ -84,37 +150,15 @@ access-key: "my-secret-key"
 
 <br/>
 
-## Build & Development
+## Directory Listing UI
 
-```bash
-make help             # Show all targets
-make build            # Build binary to bin/
-make run              # Build and run
-make test             # Run all tests with race detection
-make test-unit        # Run unit tests only
-make test-integration # Run integration tests only
-make cover            # Generate HTML coverage report
-make lint             # Run golangci-lint
-make lint-fix         # Run golangci-lint with auto-fix
-make fmt              # Format code
-make vet              # Run go vet
-make cross-build      # Build for linux/darwin amd64/arm64
-make test-helm        # Helm chart lint + template tests
-make version          # Show version across all files
-make bump-version VERSION=v0.2.0  # Bump version in all files
-```
+The directory listing features a modern, responsive design:
 
-<br/>
-
-## Docker
-
-```bash
-make docker-build          # Build Docker image
-make docker-push           # Push to registry
-make docker-buildx         # Multi-arch build + push (versioned + latest)
-make docker-buildx-tag     # Multi-arch build + push (versioned only)
-make docker-buildx-latest  # Multi-arch build + push (latest only)
-```
+- **Dark mode**: Automatically follows system preference
+- **File icons**: 13 categories with distinct colors (folder, image, video, audio, PDF, doc, spreadsheet, slides, archive, code, config, binary, font)
+- **Search**: Real-time filter with keyboard shortcut (`/` to focus, `Esc` to clear)
+- **Preview**: Click image/video/audio files to preview in a modal overlay
+- **Sorting**: Click column headers to sort by name, size, or date
 
 <br/>
 
@@ -126,43 +170,28 @@ make docker-buildx-latest  # Multi-arch build + push (latest only)
 make deploy               # Build image + run container on :8080
 make test-deploy           # Smoke test against running container
 make undeploy              # Stop and remove container
-
-# Custom port and volume
-make deploy DEPLOY_PORT=3000 DEPLOY_VOLUME=/path/to/files
 ```
 
-### Kubernetes
+### Kubernetes (kubectl)
 
 ```bash
 make deploy-k8s                         # Deploy to default namespace
-make deploy-k8s K8S_NAMESPACE=web       # Deploy to specific namespace
 make undeploy-k8s                       # Remove from cluster
-make undeploy-k8s K8S_NAMESPACE=web     # Remove from specific namespace
 ```
 
-Manifests are in `deploy/deployment.yaml` (Deployment + Service).
+### Helm Storage Examples
 
-### Helm
+| Example | File | Description |
+|---------|------|-------------|
+| Dynamic provisioning | [dynamic-provisioning.yaml](helm/static-file-server/examples/dynamic-provisioning.yaml) | StorageClass auto-creates PV |
+| NFS static | [nfs-static.yaml](helm/static-file-server/examples/nfs-static.yaml) | Manual NFS PV + PVC |
+| HostPath | [hostpath-static.yaml](helm/static-file-server/examples/hostpath-static.yaml) | Single-node / development |
+| AWS EBS CSI | [csi-ebs.yaml](helm/static-file-server/examples/csi-ebs.yaml) | AWS EBS volume |
+| ConfigMap site | [configmap-site.yaml](helm/static-file-server/examples/configmap-site.yaml) | Small static site from ConfigMap |
+| Ingress + TLS | [ingress-tls.yaml](helm/static-file-server/examples/ingress-tls.yaml) | cert-manager TLS termination |
+| Multi-volume | [multi-volume.yaml](helm/static-file-server/examples/multi-volume.yaml) | NFS + extra ConfigMap volume |
 
-```bash
-# Install from local chart
-helm install my-server ./helm/static-file-server
-
-# With custom values
-helm install my-server ./helm/static-file-server \
-  --set config.cors=true \
-  --set service.type=LoadBalancer
-
-# From Helm repository
-helm repo add static-file-server https://somaz94.github.io/static-file-server/helm-repo
-helm repo update
-helm install my-server static-file-server/static-file-server
-
-# Uninstall
-helm uninstall my-server
-```
-
-See [docs/deployment.md](docs/deployment.md) for advanced deployment options (PVC, ConfigMap, Ingress).
+For full deployment instructions, see [Deployment Guide](docs/deployment.md).
 
 <br/>
 
@@ -173,29 +202,35 @@ make version                      # Show version across all files
 make bump-version VERSION=v0.2.0  # Bump version in all files at once
 ```
 
-See [docs/version.md](docs/version.md) for the release process.
+See [Version Guide](docs/version.md) for the release process.
+
+<br/>
+
+## Development
+
+```bash
+make help             # Show all targets
+make build            # Build binary
+make test             # Run all tests (93.5% coverage)
+make test-unit        # Unit tests only
+make test-integration # Integration tests only
+make test-helm        # Helm chart lint + template tests (15 scenarios)
+make cover            # HTML coverage report
+make lint             # Run golangci-lint
+make fmt              # Format code
+make vet              # Run go vet
+make cross-build      # Build for linux/darwin amd64/arm64
+```
 
 <br/>
 
 ## Workflow
 
 ```bash
-make check-gh                     # Verify gh CLI is installed and authenticated
-make branch name=search-filter    # Create feature branch (feat/search-filter)
-make pr title="Add search filter" # Run tests, push, and create PR
+make check-gh                     # Verify gh CLI
+make branch name=search-filter    # Create feature branch
+make pr title="Add search filter" # Test + push + create PR
 ```
-
-<br/>
-
-## Directory Listing UI
-
-The directory listing features a modern, responsive design:
-
-- **Dark mode**: Automatically follows system preference
-- **File icons**: 13 categories with distinct colors (folder, image, video, audio, PDF, doc, spreadsheet, slides, archive, code, config, binary, font)
-- **Search**: Real-time filter with keyboard shortcut (`/` to focus, `Esc` to clear)
-- **Preview**: Click image/video/audio files to preview in a modal overlay
-- **Sorting**: Click column headers to sort by name, size, or date
 
 <br/>
 
@@ -209,17 +244,15 @@ internal/handler/       # HTTP middleware chain + directory listing
 internal/server/        # HTTP/HTTPS server lifecycle
 internal/version/       # Build version metadata (ldflags)
 deploy/                 # Kubernetes manifests (Deployment + Service)
-helm/                   # Helm chart
-docs/                   # Documentation (configuration, deployment, version)
-hack/                   # Scripts (bump-version, test-helm)
-scripts/                # Utility scripts (create-pr)
+helm/                   # Helm chart (7 templates + 7 examples)
+docs/                   # Documentation
+hack/                   # Build/version scripts
+scripts/                # Utility scripts
 testdata/               # Sample files for local deploy testing
-.github/workflows/      # CI/CD (test, lint, release, helm-release)
+.github/workflows/      # CI/CD (9 workflows)
 ```
 
-<br/>
-
-## Middleware Chain
+### Middleware Chain
 
 Applied outer to inner:
 
@@ -229,6 +262,17 @@ Applied outer to inner:
 4. Referrer validation (optional)
 5. CORS headers (optional)
 6. File handler (index/listing/basic)
+
+<br/>
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Configuration Guide](docs/configuration.md) | Environment variables, YAML config, serving modes, access control |
+| [Deployment Guide](docs/deployment.md) | Binary, Docker, Kubernetes, Helm (with storage examples) |
+| [Testing Guide](docs/test.md) | Unit tests, integration tests, Helm tests, coverage |
+| [Version Guide](docs/version.md) | Version management, bump process, release workflow |
 
 <br/>
 
