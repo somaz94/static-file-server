@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.4.1](https://github.com/somaz94/static-file-server/compare/v0.4.0...v0.4.1) (2026-04-13)
+
+### Features
+
+- add missing compression extensions and direct download for single file ([11cb370](https://github.com/somaz94/static-file-server/commit/11cb370b66ce8a3ff0a1a513de7b552ce3075702))
+
+### Bug Fixes
+
+- avoid SIGPIPE in smoke test body_contains with here-string ([03c4e42](https://github.com/somaz94/static-file-server/commit/03c4e425bfda85f4cf5f739eb330a0a6e2cfa8ea))
+- copy full URL instead of path-only in directory listing ([a417541](https://github.com/somaz94/static-file-server/commit/a417541d8cca3cc0e23e0c4fc495c10647fc92d9))
+- enable metrics in local deploy for smoke tests ([92e9986](https://github.com/somaz94/static-file-server/commit/92e9986402ccbb79d445ca88db6cacf0d3fc84b6))
+- resolve gofmt, ineffassign, and gocyclo warnings ([ce11933](https://github.com/somaz94/static-file-server/commit/ce119330e572e389afda87d0b5a2ce2baa64c916))
+- correct Prometheus histogram format and metrics key parsing ([e2a5af3](https://github.com/somaz94/static-file-server/commit/e2a5af34fce73aba7ddc01d386723c3bc6d4bd28))
+
+### Code Refactoring
+
+- unify ResponseWriter wrappers and add http.Flusher support ([585ec21](https://github.com/somaz94/static-file-server/commit/585ec216bb8e0efed63ed79de513b0cff1596484))
+- optimize compression extension check from O(n) to O(1) ([5ad4244](https://github.com/somaz94/static-file-server/commit/5ad4244769e74d9d13f8d6b3170e091f65c37cc8))
+
+### Documentation
+
+- update Prometheus metrics documentation and add metrics smoke test ([4b2696f](https://github.com/somaz94/static-file-server/commit/4b2696f5d523eef6063e7a60eb4b3336f26271d8))
+
+### Tests
+
+- add Flush tests and remove unused totalRequests ([6e8f583](https://github.com/somaz94/static-file-server/commit/6e8f583ffd6d5894aa5e5fea6b4289eff9418cd8))
+
+### Chores
+
+- bump version to v0.4.1 ([bd9b9a5](https://github.com/somaz94/static-file-server/commit/bd9b9a5a08c4983897cb6a201c792be7e90d9f9d))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.4.0](https://github.com/somaz94/static-file-server/compare/v0.3.0...v0.4.0) (2026-04-13)
 
 ### Features
