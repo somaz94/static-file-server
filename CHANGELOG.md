@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ### Builds
 
+- **deps:** bump actions/github-script from 8 to 9 (#9) ([#9](https://github.com/somaz94/static-file-server/pull/9)) ([c85ad68](https://github.com/somaz94/static-file-server/commit/c85ad681b278c09a5bac155922d4fd86149408c6))
 - **deps:** bump docker/build-push-action from 6 to 7 (#8) ([#8](https://github.com/somaz94/static-file-server/pull/8)) ([668efd0](https://github.com/somaz94/static-file-server/commit/668efd0e4b25acc622ea98a7c142320ef4769d72))
 
 ### Continuous Integration
