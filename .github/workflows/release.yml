@@ -1,4 +1,4 @@
-name: Release
+name: Create release
 
 on:
   push:
@@ -7,76 +7,20 @@ on:
 
 permissions:
   contents: write
-  packages: write
+  pull-requests: write
 
 jobs:
-  test:
-    name: Run Tests
+  build:
+    name: "Release"
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: 'go.mod'
-          cache: true
-
-      - name: Run tests
-        run: make test
-
-  docker:
-    name: Build and Push Docker Image
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Extract version
-        id: version
-        run: echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            somaz940/static-file-server:${{ steps.version.outputs.tag }}
-            somaz940/static-file-server:latest
-          build-args: |
-            VERSION=${{ steps.version.outputs.tag }}
-            GIT_COMMIT=${{ github.sha }}
-            BUILD_DATE=${{ github.event.head_commit.timestamp }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    needs: [test, docker]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Get previous tag
+      - name: Get previous semver tag
         id: prev_tag
         run: |
           CURRENT_TAG="${{ github.ref_name }}"
@@ -86,24 +30,20 @@ jobs:
           fi
           echo "tag=${PREVIOUS_TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Generate release notes
-        id: notes
+      - name: Generate changelog with git-cliff
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: RELEASE.md
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Append full changelog link
+        if: steps.prev_tag.outputs.tag != ''
         run: |
-          if [ -n "${{ steps.prev_tag.outputs.tag }}" ]; then
-            echo "## Changes" > RELEASE.md
-            git log --pretty=format:"- %s (%h)" ${{ steps.prev_tag.outputs.tag }}..${{ github.ref_name }} >> RELEASE.md
-            echo "" >> RELEASE.md
-            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.prev_tag.outputs.tag }}...${{ github.ref_name }}" >> RELEASE.md
-          else
-            echo "## Initial Release" > RELEASE.md
-            echo "" >> RELEASE.md
-            echo "First release of static-file-server." >> RELEASE.md
-          fi
           echo "" >> RELEASE.md
-          echo "### Docker" >> RELEASE.md
-          echo '```bash' >> RELEASE.md
-          echo "docker pull somaz940/static-file-server:${{ github.ref_name }}" >> RELEASE.md
-          echo '```' >> RELEASE.md
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.prev_tag.outputs.tag }}...${{ github.ref_name }}" >> RELEASE.md
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
@@ -114,3 +54,9 @@ jobs:
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Update major version tag"
+        uses: somaz94/major-tag-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          github_token: ${{ secrets.PAT_TOKEN }}

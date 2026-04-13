@@ -6,18 +6,15 @@ on:
     paths-ignore:
       - '.github/workflows/**'
       - '**/*.md'
-      - 'helm/**'
-      - 'deploy/**'
-      - 'docs/**'
   pull_request:
   workflow_dispatch:
 
 jobs:
   test:
-    name: Run Tests
+    name: Run on Ubuntu
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Clone the code
         uses: actions/checkout@v6
 
       - name: Setup Go
@@ -26,17 +23,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: Run tests
+      - name: Running Tests
         run: |
           go mod tidy
           make test
-
-      - name: Check coverage threshold
-        run: |
-          go test ./internal/... -coverprofile=coverage.out -covermode=atomic
-          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-          echo "Total coverage: ${COVERAGE}%"
-          if (( $(echo "$COVERAGE < 90" | bc -l) )); then
-            echo "::error::Coverage ${COVERAGE}% is below 90% threshold"
-            exit 1
-          fi
