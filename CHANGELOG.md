@@ -6,56 +6,20 @@ All notable changes to this project will be documented in this file.
 
 ### Features
 
-- add grid/list view toggle with image thumbnail cards ([666a4ee](https://github.com/somaz94/static-file-server/commit/666a4ee))
-- add preview gallery navigation with prev/next arrows and keyboard support
-- add image preview zoom (click toggle + scroll wheel)
-- add text/code preview with line numbers
-- add PDF preview (iframe) and download button in preview modal
-- add multi-file selection with batch ZIP download endpoint
-- add file type filter chips with dynamic count badges
-- add file extension badges (.go, .py, .tsx, etc.)
-- add copy file path to clipboard button
-- add keyboard shortcuts help dialog (? key)
-- add scroll to top button
-- add URL hash state for shareable search/filter links
-- add relative time display with absolute time tooltip
-- add sort preference localStorage persistence
-- add search text highlight with `<mark>` tags
-- add table row fade-in animation
-- add breadcrumb current page distinction (aria-current)
+- add advanced directory listing UI with grid view, batch download, and gallery preview ([666a4ee](https://github.com/somaz94/static-file-server/commit/666a4eeecdeb8dfaa30588f2e6ce923b534ab515))
 
 ### Bug Fixes
 
-- fix batch download path traversal with absolute path verification and symlink rejection
-- fix batch download io.Copy error handling to prevent corrupted ZIP files
-- fix sort state restoration incorrectly flipping direction on page load
-- fix grid/table checkbox state synchronization
-- fix keyboard navigation not working in grid view
-- fix filter chip counts not updating with search results
-- fix batch download missing error handling in frontend
+- Makefile ([7de4a36](https://github.com/somaz94/static-file-server/commit/7de4a36db96cb4c1eeee3c0e7de0f3bb7747beb6))
+- harden batch download, fix JS bugs, update docs and deploy targets ([6c4242a](https://github.com/somaz94/static-file-server/commit/6c4242a59a36cb36b19c6f94a54b5611891b639e))
 
-### Security
+### Code Refactoring
 
-- add rate limits to batch download (max 100 files, 500 MB total)
-- add symlink rejection in batch download to prevent directory escape
-- validate batch download paths using absolute path prefix check
+- switch deploy to local binary, add deploy-docker, rename deploy targets ([9d0428f](https://github.com/somaz94/static-file-server/commit/9d0428f5ea56cce2a1c76047882a7cfcf81c7b35))
 
-### Accessibility
+### Contributors
 
-- add `<main>` landmark, aria-label on breadcrumb and search
-- add aria-live on search result count
-- add aria-sort on sortable table headers
-- add role="dialog" and aria-modal on preview overlay
-- add focus trap in preview modal
-
-### Documentation
-
-- add Helm chart README.md with full parameter reference
-- update README.md features section with new UI capabilities
-
-### Chores
-
-- bump version to v0.4.0
+- somaz
 
 <br/>
 
