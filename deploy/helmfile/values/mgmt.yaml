@@ -56,13 +56,13 @@ resources: {}
 probes:
   liveness:
     enabled: true
-    path: /
+    path: /healthz
     port: 8080
     initialDelaySeconds: 10
     periodSeconds: 10
   readiness:
     enabled: true
-    path: /
+    path: /healthz
     port: 8080
     initialDelaySeconds: 5
     periodSeconds: 10

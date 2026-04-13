@@ -22,13 +22,20 @@ Feature-compatible with [halverneus/static-file-server](https://github.com/halve
 ![CORS](https://img.shields.io/badge/CORS-orange?logo=files&logoColor=white)
 ![TLS](https://img.shields.io/badge/TLS%2FHTTPS-orange?logo=files&logoColor=white)
 ![Helm](https://img.shields.io/badge/Helm_Chart-0F1689?logo=helm&logoColor=white)
+![Health Check](https://img.shields.io/badge/Health_Check-green?logo=files&logoColor=white)
+![Custom Headers](https://img.shields.io/badge/Custom_Headers-orange?logo=files&logoColor=white)
 
 - Modern, responsive directory listing with dark mode support
+- Dark/light mode toggle (manual switch + system preference detection)
 - Extension-based file icons (13 categories: image, video, audio, code, config, etc.)
 - Client-side search/filter with keyboard shortcuts (`/` to focus, `Esc` to clear)
 - Inline preview for images, video, and audio files
 - Column sorting (name, size, modified date)
 - Breadcrumb navigation
+- File stats in footer (total files, directories, combined size)
+- Version display in footer
+- `/healthz` health check endpoint (bypasses all middleware)
+- Custom response headers (`CUSTOM_HEADERS`)
 - CORS support
 - TLS/HTTPS with configurable minimum version
 - Access control (URL keys, referrer validation)
@@ -129,6 +136,7 @@ FOLDER=./public PORT=3000 CORS=true ./bin/static-file-server
 | `TLS_MIN_VERS` | string | `""` | Minimum TLS version (TLS10/TLS11/TLS12/TLS13) |
 | `REFERRERS` | string | `""` | Comma-separated allowed referrer prefixes |
 | `ACCESS_KEY` | string | `""` | URL parameter access key |
+| `CUSTOM_HEADERS` | string | `""` | Comma-separated `Key:Value` response headers |
 
 For detailed configuration, see [Configuration Guide](docs/configuration.md).
 
@@ -146,6 +154,9 @@ url-prefix: "/files"
 referrers:
   - "https://example.com"
 access-key: "my-secret-key"
+custom-headers:
+  X-Frame-Options: "DENY"
+  Cache-Control: "public, max-age=3600"
 ```
 
 <br/>

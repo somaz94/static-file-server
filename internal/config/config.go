@@ -13,17 +13,17 @@ import (
 
 // Config holds all server configuration.
 type Config struct {
-	CORS        bool     `yaml:"cors"`
-	Debug       bool     `yaml:"debug"`
-	Host        string   `yaml:"host"`
-	Port        uint16   `yaml:"port"`
-	Folder      string   `yaml:"folder"`
-	AllowIndex  bool     `yaml:"allow-index"`
-	ShowListing bool     `yaml:"show-listing"`
-	URLPrefix   string   `yaml:"url-prefix"`
-	TLSCert     string   `yaml:"tls-cert"`
-	TLSKey      string   `yaml:"tls-key"`
-	TLSMinVers  string   `yaml:"tls-min-vers"`
+	CORS          bool              `yaml:"cors"`
+	Debug         bool              `yaml:"debug"`
+	Host          string            `yaml:"host"`
+	Port          uint16            `yaml:"port"`
+	Folder        string            `yaml:"folder"`
+	AllowIndex    bool              `yaml:"allow-index"`
+	ShowListing   bool              `yaml:"show-listing"`
+	URLPrefix     string            `yaml:"url-prefix"`
+	TLSCert       string            `yaml:"tls-cert"`
+	TLSKey        string            `yaml:"tls-key"`
+	TLSMinVers    string            `yaml:"tls-min-vers"`
 	Referrers     []string          `yaml:"referrers"`
 	AccessKey     string            `yaml:"access-key"`
 	CustomHeaders map[string]string `yaml:"custom-headers"`
@@ -32,17 +32,17 @@ type Config struct {
 // Default returns a Config with default values matching halverneus behavior.
 func Default() *Config {
 	return &Config{
-		CORS:        false,
-		Debug:       false,
-		Host:        "",
-		Port:        8080,
-		Folder:      "/web",
-		AllowIndex:  true,
-		ShowListing: true,
-		URLPrefix:   "",
-		TLSCert:     "",
-		TLSKey:      "",
-		TLSMinVers:  "",
+		CORS:          false,
+		Debug:         false,
+		Host:          "",
+		Port:          8080,
+		Folder:        "/web",
+		AllowIndex:    true,
+		ShowListing:   true,
+		URLPrefix:     "",
+		TLSCert:       "",
+		TLSKey:        "",
+		TLSMinVers:    "",
 		Referrers:     nil,
 		AccessKey:     "",
 		CustomHeaders: nil,

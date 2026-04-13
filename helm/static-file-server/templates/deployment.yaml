@@ -76,6 +76,10 @@ spec:
             - name: ACCESS_KEY
               value: {{ .Values.config.accessKey | quote }}
             {{- end }}
+            {{- if .Values.config.customHeaders }}
+            - name: CUSTOM_HEADERS
+              value: {{ .Values.config.customHeaders | quote }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

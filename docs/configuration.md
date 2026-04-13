@@ -25,6 +25,7 @@ static-file-server supports three configuration methods. Priority (highest to lo
 | `TLS_MIN_VERS` | string | `""` | Minimum TLS version (`TLS10`, `TLS11`, `TLS12`, `TLS13`) |
 | `REFERRERS` | string | `""` | Comma-separated allowed referrer prefixes |
 | `ACCESS_KEY` | string | `""` | URL parameter access key |
+| `CUSTOM_HEADERS` | string | `""` | Comma-separated `Key:Value` custom response headers (e.g. `X-Frame-Options:DENY,Cache-Control:no-cache`) |
 
 Boolean values accept: `1`, `true`, `t`, `yes`, `y` (true) and `0`, `false`, `f`, `no`, `n` (false).
 
@@ -53,6 +54,9 @@ referrers:
   - "https://example.com"
   - "https://cdn.example.com"
 access-key: "my-secret-key"
+custom-headers:
+  X-Frame-Options: "DENY"
+  Cache-Control: "public, max-age=3600"
 ```
 
 <br/>

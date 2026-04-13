@@ -40,7 +40,7 @@ func TestBasicHandler(t *testing.T) {
 	}{
 		{"/hello.txt", http.StatusOK, "hello world"},
 		{"/notfound.txt", http.StatusNotFound, ""},
-		{"/", http.StatusNotFound, ""},       // directory
+		{"/", http.StatusNotFound, ""},        // directory
 		{"/subdir/", http.StatusNotFound, ""}, // directory
 	}
 
@@ -510,7 +510,7 @@ func TestWithCustomHeaders(t *testing.T) {
 	})
 	headers := map[string]string{
 		"X-Custom-Test":          "hello",
-		"X-Frame-Options":       "DENY",
+		"X-Frame-Options":        "DENY",
 		"X-Content-Type-Options": "nosniff",
 	}
 	h := withCustomHeaders(inner, headers)

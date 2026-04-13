@@ -50,6 +50,8 @@ config:
   # Access control (optional)
   referrers: ""
   accessKey: ""
+  # Custom response headers (optional, comma-separated Key:Value pairs)
+  customHeaders: ""
 
 # Extra environment variables
 extraEnv: []
@@ -90,13 +92,13 @@ resources:
 probes:
   liveness:
     enabled: true
-    path: /
+    path: /healthz
     port: http
     initialDelaySeconds: 5
     periodSeconds: 10
   readiness:
     enabled: true
-    path: /
+    path: /healthz
     port: http
     initialDelaySeconds: 3
     periodSeconds: 5

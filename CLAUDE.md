@@ -79,6 +79,7 @@ make pr title="..."   # Test + push + create PR
 | `TLS_MIN_VERS` | string | `""` | Minimum TLS version (TLS10/TLS11/TLS12/TLS13) |
 | `REFERRERS` | string | `""` | Comma-separated allowed referrer prefixes |
 | `ACCESS_KEY` | string | `""` | URL parameter access key |
+| `CUSTOM_HEADERS` | string | `""` | Comma-separated `Key:Value` custom response headers |
 
 ## Middleware Chain (outer to inner)
 
@@ -87,7 +88,8 @@ make pr title="..."   # Test + push + create PR
 3. Access key verification
 4. Referrer validation
 5. CORS headers
-6. File handler (index/listing/basic)
+6. Custom response headers
+7. File handler (index/listing/basic)
 
 ## Directory Listing UI Features
 
@@ -96,8 +98,15 @@ make pr title="..."   # Test + push + create PR
 - Inline preview modal for images, video, and audio
 - Column sorting (name, size, modified date)
 - Breadcrumb navigation
-- Dark mode (follows system preference)
+- Dark/light mode toggle (manual switch + system preference detection)
+- File stats in footer (total files, directories, combined size)
+- Version display in footer
 - Responsive design (mobile-friendly)
+
+## Health Check
+
+- `/healthz` endpoint returns `200 OK` with body `ok`
+- Bypasses all middleware (no auth, no CORS, no logging)
 
 ## Testing
 
