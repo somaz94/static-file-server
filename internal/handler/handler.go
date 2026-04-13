@@ -3,6 +3,7 @@ package handler
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,20 +16,30 @@ import (
 )
 
 // Build creates the complete HTTP handler chain from configuration.
-// Middleware order (outer to inner): logging → prefix → accessKey → referrer → CORS → customHeaders → fileHandler
+// Middleware order (outer to inner): logging → prefix → accessKey → referrer → CORS → customHeaders → compression → dotFiles → fileHandler
 func Build(cfg *config.Config) http.Handler {
 	var handler http.Handler
 
-	// Base handler: file serving with index/listing control
+	// Base handler: file serving with index/listing/SPA control
 	switch {
+	case cfg.SPA:
+		handler = spa(cfg.Folder)
 	case cfg.ShowListing && cfg.AllowIndex:
-		handler = listingAndIndex(cfg.Folder)
+		handler = listingAndIndex(cfg.Folder, cfg.HideDotFiles)
 	case cfg.ShowListing:
-		handler = listing(cfg.Folder)
+		handler = listing(cfg.Folder, cfg.HideDotFiles)
 	case cfg.AllowIndex:
 		handler = index(cfg.Folder)
 	default:
 		handler = basic(cfg.Folder)
+	}
+
+	if cfg.HideDotFiles {
+		handler = withHideDotFiles(handler)
+	}
+
+	if cfg.Compression {
+		handler = withCompression(handler)
 	}
 
 	if len(cfg.CustomHeaders) > 0 {
@@ -52,11 +63,17 @@ func Build(cfg *config.Config) http.Handler {
 	}
 
 	if cfg.Debug {
-		handler = withLogging(handler)
+		handler = withLogging(handler, cfg.LogFormat)
 	}
 
-	// Wrap with health check (bypasses all middleware)
-	return withHealthz(handler)
+	// Wrap with health check and optional metrics (bypass all middleware)
+	handler = withHealthz(handler)
+
+	if cfg.Metrics {
+		handler = withMetrics(handler)
+	}
+
+	return handler
 }
 
 // withHealthz adds a /healthz endpoint that bypasses all middleware.
@@ -153,7 +170,7 @@ func index(folder string) http.HandlerFunc {
 }
 
 // listing serves files and directory listings. Does not prefer index.html.
-func listing(folder string) http.HandlerFunc {
+func listing(folder string, hideDot bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fpath, err := safePath(folder, r.URL.Path)
 		if err != nil {
@@ -168,7 +185,7 @@ func listing(folder string) http.HandlerFunc {
 		}
 
 		if info.IsDir() {
-			renderListing(w, r, fpath, r.URL.Path)
+			renderListing(w, r, fpath, r.URL.Path, hideDot)
 			return
 		}
 
@@ -178,7 +195,7 @@ func listing(folder string) http.HandlerFunc {
 
 // listingAndIndex serves files, prefers index.html for directories, falls back
 // to directory listing.
-func listingAndIndex(folder string) http.HandlerFunc {
+func listingAndIndex(folder string, hideDot bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fpath, err := safePath(folder, r.URL.Path)
 		if err != nil {
@@ -198,12 +215,51 @@ func listingAndIndex(folder string) http.HandlerFunc {
 				http.ServeFile(w, r, indexPath)
 				return
 			}
-			renderListing(w, r, fpath, r.URL.Path)
+			renderListing(w, r, fpath, r.URL.Path, hideDot)
 			return
 		}
 
 		http.ServeFile(w, r, fpath)
 	}
+}
+
+// spa serves files if they exist, otherwise falls back to /index.html.
+// Designed for single-page applications (React, Vue, Angular).
+func spa(folder string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fpath, err := safePath(folder, r.URL.Path)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		info, err := os.Stat(fpath)
+		if err != nil || info.IsDir() {
+			// Fallback to root index.html for SPA routing.
+			indexPath := filepath.Join(folder, "index.html")
+			if _, err := os.Stat(indexPath); err == nil {
+				http.ServeFile(w, r, indexPath)
+				return
+			}
+			http.NotFound(w, r)
+			return
+		}
+
+		http.ServeFile(w, r, fpath)
+	}
+}
+
+// withHideDotFiles rejects requests for dot files/directories (e.g. .env, .git).
+func withHideDotFiles(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, segment := range strings.Split(r.URL.Path, "/") {
+			if strings.HasPrefix(segment, ".") && segment != "." && segment != ".." {
+				http.NotFound(w, r)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // withCORS adds CORS headers to all responses.
@@ -287,15 +343,49 @@ func (rr *responseRecorder) WriteHeader(code int) {
 	rr.ResponseWriter.WriteHeader(code)
 }
 
+// logEntry holds structured log data for JSON output.
+type logEntry struct {
+	Time       string `json:"time"`
+	Remote     string `json:"remote"`
+	Method     string `json:"method"`
+	Path       string `json:"path"`
+	Proto      string `json:"proto"`
+	Host       string `json:"host"`
+	Status     int    `json:"status"`
+	DurationMs int64  `json:"duration_ms"`
+	Referer    string `json:"referer,omitempty"`
+}
+
 // withLogging logs each request with response status and elapsed time to stderr.
-func withLogging(next http.Handler) http.Handler {
+func withLogging(next http.Handler, format string) http.Handler {
 	logger := log.New(os.Stderr, "", log.LstdFlags)
+	jsonLogger := log.New(os.Stderr, "", 0)
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		rec := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rec, r)
-		logger.Printf("%s %s %s %s %s %d %s referer=%q",
-			r.RemoteAddr, r.Method, r.Proto, r.Host, r.URL.Path,
-			rec.status, time.Since(start), r.Referer())
+		elapsed := time.Since(start)
+
+		if format == "json" {
+			entry := logEntry{
+				Time:       start.UTC().Format(time.RFC3339),
+				Remote:     r.RemoteAddr,
+				Method:     r.Method,
+				Path:       r.URL.Path,
+				Proto:      r.Proto,
+				Host:       r.Host,
+				Status:     rec.status,
+				DurationMs: elapsed.Milliseconds(),
+				Referer:    r.Referer(),
+			}
+			if data, err := json.Marshal(entry); err == nil {
+				jsonLogger.Println(string(data))
+			}
+		} else {
+			logger.Printf("%s %s %s %s %s %d %s referer=%q",
+				r.RemoteAddr, r.Method, r.Proto, r.Host, r.URL.Path,
+				rec.status, elapsed, r.Referer())
+		}
 	})
 }

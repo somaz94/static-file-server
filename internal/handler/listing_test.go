@@ -126,7 +126,7 @@ func TestRenderListing(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
-	renderListing(w, req, dir, "/")
+	renderListing(w, req, dir, "/", false)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
@@ -191,7 +191,7 @@ func TestRenderListingWithParent(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/sub/", nil)
 	w := httptest.NewRecorder()
-	renderListing(w, req, sub, "/sub/")
+	renderListing(w, req, sub, "/sub/", false)
 
 	body := w.Body.String()
 
@@ -207,7 +207,7 @@ func TestRenderListingWithParent(t *testing.T) {
 func TestRenderListingInvalidDir(t *testing.T) {
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
-	renderListing(w, req, "/nonexistent/path/xyz", "/")
+	renderListing(w, req, "/nonexistent/path/xyz", "/", false)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected 500 for invalid dir, got %d", w.Code)

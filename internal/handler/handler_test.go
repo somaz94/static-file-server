@@ -93,7 +93,7 @@ func TestIndexHandler(t *testing.T) {
 
 func TestListingHandler(t *testing.T) {
 	dir := setupTestDir(t)
-	h := listing(dir)
+	h := listing(dir, false)
 
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
@@ -114,7 +114,7 @@ func TestListingHandler(t *testing.T) {
 
 func TestListingAndIndexHandler(t *testing.T) {
 	dir := setupTestDir(t)
-	h := listingAndIndex(dir)
+	h := listingAndIndex(dir, false)
 
 	// Root has index.html → serve it.
 	req := httptest.NewRequest("GET", "/", nil)
@@ -291,14 +291,29 @@ func TestBuild(t *testing.T) {
 	}
 }
 
-func TestWithLogging(t *testing.T) {
+func TestWithLoggingText(t *testing.T) {
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	h := withLogging(inner)
+	h := withLogging(inner, "text")
 
 	req := httptest.NewRequest("GET", "/test-path", nil)
 	req.Header.Set("Referer", "https://example.com")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestWithLoggingJSON(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	h := withLogging(inner, "json")
+
+	req := httptest.NewRequest("GET", "/test-path", nil)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 
@@ -408,7 +423,7 @@ func TestBuildBasicOnly(t *testing.T) {
 
 func TestListingHandlerServeFile(t *testing.T) {
 	dir := setupTestDir(t)
-	h := listing(dir)
+	h := listing(dir, false)
 
 	// File request
 	req := httptest.NewRequest("GET", "/hello.txt", nil)
@@ -425,7 +440,7 @@ func TestListingHandlerServeFile(t *testing.T) {
 
 func TestListingHandlerNotFound(t *testing.T) {
 	dir := setupTestDir(t)
-	h := listing(dir)
+	h := listing(dir, false)
 
 	req := httptest.NewRequest("GET", "/no-such-file.txt", nil)
 	w := httptest.NewRecorder()
@@ -523,6 +538,319 @@ func TestWithCustomHeaders(t *testing.T) {
 		if got := w.Header().Get(key); got != val {
 			t.Errorf("header %s: expected %q, got %q", key, val, got)
 		}
+	}
+}
+
+// --- SPA mode tests ---
+
+func TestSPAHandler(t *testing.T) {
+	dir := setupTestDir(t)
+	h := spa(dir)
+
+	// Existing file: serve it directly.
+	req := httptest.NewRequest("GET", "/hello.txt", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for existing file, got %d", w.Code)
+	}
+	if w.Body.String() != "hello world" {
+		t.Errorf("expected 'hello world', got %q", w.Body.String())
+	}
+
+	// Non-existing path: fallback to /index.html.
+	req = httptest.NewRequest("GET", "/app/dashboard", nil)
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for SPA fallback, got %d", w.Code)
+	}
+	if w.Body.String() != "<html>index</html>" {
+		t.Errorf("expected index.html content, got %q", w.Body.String())
+	}
+
+	// Directory path: fallback to /index.html.
+	req = httptest.NewRequest("GET", "/subdir/", nil)
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for SPA directory fallback, got %d", w.Code)
+	}
+}
+
+func TestSPAHandlerNoIndex(t *testing.T) {
+	dir := t.TempDir()
+	// No index.html at all
+	os.WriteFile(filepath.Join(dir, "file.txt"), []byte("data"), 0644)
+	h := spa(dir)
+
+	req := httptest.NewRequest("GET", "/nonexistent", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 when no index.html, got %d", w.Code)
+	}
+}
+
+func TestBuildSPA(t *testing.T) {
+	dir := setupTestDir(t)
+	cfg := config.Default()
+	cfg.Folder = dir
+	cfg.SPA = true
+	cfg.ShowListing = false
+
+	h := Build(cfg)
+
+	req := httptest.NewRequest("GET", "/any/route", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for SPA route, got %d", w.Code)
+	}
+}
+
+// --- Hidden dot files tests ---
+
+func TestWithHideDotFiles(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	h := withHideDotFiles(inner)
+
+	tests := []struct {
+		path string
+		code int
+	}{
+		{"/normal.txt", http.StatusOK},
+		{"/.env", http.StatusNotFound},
+		{"/.git/config", http.StatusNotFound},
+		{"/subdir/.hidden", http.StatusNotFound},
+		{"/", http.StatusOK},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tt.path, nil)
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, req)
+			if w.Code != tt.code {
+				t.Errorf("path %s: expected %d, got %d", tt.path, tt.code, w.Code)
+			}
+		})
+	}
+}
+
+func TestListingHideDotFiles(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".hidden"), []byte("secret"), 0644)
+	os.WriteFile(filepath.Join(dir, "visible.txt"), []byte("public"), 0644)
+
+	h := listing(dir, true)
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if strings.Contains(body, ".hidden") {
+		t.Error("listing should not contain .hidden when hideDot=true")
+	}
+	if !strings.Contains(body, "visible.txt") {
+		t.Error("listing should contain visible.txt")
+	}
+}
+
+// --- Compression tests ---
+
+func TestWithCompression(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte("<html>hello world</html>"))
+	})
+	h := withCompression(inner)
+
+	// With gzip support
+	req := httptest.NewRequest("GET", "/page.html", nil)
+	req.Header.Set("Accept-Encoding", "gzip, deflate")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Header().Get("Content-Encoding") != "gzip" {
+		t.Error("expected Content-Encoding: gzip")
+	}
+	if w.Header().Get("Vary") != "Accept-Encoding" {
+		t.Error("expected Vary: Accept-Encoding")
+	}
+}
+
+func TestWithCompressionSkipNoAccept(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("plain"))
+	})
+	h := withCompression(inner)
+
+	// Without Accept-Encoding: no compression
+	req := httptest.NewRequest("GET", "/page.html", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Header().Get("Content-Encoding") == "gzip" {
+		t.Error("should not compress without Accept-Encoding")
+	}
+	if w.Body.String() != "plain" {
+		t.Errorf("expected 'plain', got %q", w.Body.String())
+	}
+}
+
+func TestWithCompressionSkipRange(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("data"))
+	})
+	h := withCompression(inner)
+
+	req := httptest.NewRequest("GET", "/file.txt", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	req.Header.Set("Range", "bytes=0-100")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Header().Get("Content-Encoding") == "gzip" {
+		t.Error("should not compress Range requests")
+	}
+}
+
+func TestWithCompressionSkipBinary(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("binary"))
+	})
+	h := withCompression(inner)
+
+	binaryPaths := []string{"/app.apk", "/image.jpg", "/video.mp4", "/archive.zip"}
+	for _, p := range binaryPaths {
+		t.Run(p, func(t *testing.T) {
+			req := httptest.NewRequest("GET", p, nil)
+			req.Header.Set("Accept-Encoding", "gzip")
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, req)
+			if w.Header().Get("Content-Encoding") == "gzip" {
+				t.Errorf("should not compress %s", p)
+			}
+		})
+	}
+}
+
+// --- Metrics tests ---
+
+func TestWithMetrics(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("ok"))
+	})
+	h := withMetrics(inner)
+
+	// Make a few requests
+	for i := 0; i < 3; i++ {
+		req := httptest.NewRequest("GET", "/file.txt", nil)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+	}
+
+	// Check /metrics endpoint
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for /metrics, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "static_file_server_requests_total") {
+		t.Error("metrics should contain request counter")
+	}
+	if !strings.Contains(body, "static_file_server_response_bytes_total") {
+		t.Error("metrics should contain response bytes counter")
+	}
+	if !strings.Contains(body, "static_file_server_request_duration_seconds_bucket") {
+		t.Error("metrics should contain duration histogram")
+	}
+	if !strings.Contains(body, `method="GET"`) {
+		t.Error("metrics should contain GET method label")
+	}
+	if !strings.Contains(body, `status="200"`) {
+		t.Error("metrics should contain 200 status label")
+	}
+}
+
+func TestBuildWithMetrics(t *testing.T) {
+	dir := setupTestDir(t)
+	cfg := config.Default()
+	cfg.Folder = dir
+	cfg.Metrics = true
+
+	h := Build(cfg)
+
+	// Normal request to populate metrics
+	req := httptest.NewRequest("GET", "/hello.txt", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	// 404 request to exercise WriteHeader in metricsResponseWriter
+	req = httptest.NewRequest("GET", "/nonexistent", nil)
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	// Check /metrics endpoint
+	req = httptest.NewRequest("GET", "/metrics", nil)
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for /metrics, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `status="200"`) {
+		t.Error("metrics should contain 200 status")
+	}
+	if !strings.Contains(body, `status="404"`) {
+		t.Error("metrics should contain 404 status")
+	}
+}
+
+// --- Build with new features tests ---
+
+func TestBuildWithCompression(t *testing.T) {
+	dir := setupTestDir(t)
+	cfg := config.Default()
+	cfg.Folder = dir
+	cfg.Compression = true
+
+	h := Build(cfg)
+
+	req := httptest.NewRequest("GET", "/hello.txt", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestBuildWithHideDotFiles(t *testing.T) {
+	dir := setupTestDir(t)
+	os.WriteFile(filepath.Join(dir, ".secret"), []byte("hidden"), 0644)
+
+	cfg := config.Default()
+	cfg.Folder = dir
+	cfg.HideDotFiles = true
+
+	h := Build(cfg)
+
+	req := httptest.NewRequest("GET", "/.secret", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for dot file, got %d", w.Code)
 	}
 }
 

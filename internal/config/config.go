@@ -27,6 +27,11 @@ type Config struct {
 	Referrers     []string          `yaml:"referrers"`
 	AccessKey     string            `yaml:"access-key"`
 	CustomHeaders map[string]string `yaml:"custom-headers"`
+	SPA           bool              `yaml:"spa"`
+	Compression   bool              `yaml:"compression"`
+	HideDotFiles  bool              `yaml:"hide-dot-files"`
+	LogFormat     string            `yaml:"log-format"`
+	Metrics       bool              `yaml:"metrics"`
 }
 
 // Default returns a Config with default values matching halverneus behavior.
@@ -46,6 +51,11 @@ func Default() *Config {
 		Referrers:     nil,
 		AccessKey:     "",
 		CustomHeaders: nil,
+		SPA:           false,
+		Compression:   false,
+		HideDotFiles:  false,
+		LogFormat:      "text",
+		Metrics:        false,
 	}
 }
 
@@ -122,6 +132,21 @@ func (c *Config) loadEnv() {
 	if v, ok := os.LookupEnv("CUSTOM_HEADERS"); ok {
 		c.CustomHeaders = parseHeaders(v)
 	}
+	if v, ok := lookupEnvBool("SPA"); ok {
+		c.SPA = v
+	}
+	if v, ok := lookupEnvBool("COMPRESSION"); ok {
+		c.Compression = v
+	}
+	if v, ok := lookupEnvBool("HIDE_DOT_FILES"); ok {
+		c.HideDotFiles = v
+	}
+	if v, ok := os.LookupEnv("LOG_FORMAT"); ok {
+		c.LogFormat = v
+	}
+	if v, ok := lookupEnvBool("METRICS"); ok {
+		c.Metrics = v
+	}
 }
 
 // validate checks for configuration errors.
@@ -150,6 +175,17 @@ func (c *Config) validate() error {
 		if strings.HasSuffix(c.URLPrefix, "/") {
 			return fmt.Errorf("URL_PREFIX must not end with /")
 		}
+	}
+
+	switch strings.ToLower(c.LogFormat) {
+	case "text", "json":
+		c.LogFormat = strings.ToLower(c.LogFormat)
+	default:
+		return fmt.Errorf("LOG_FORMAT must be \"text\" or \"json\", got %q", c.LogFormat)
+	}
+
+	if c.SPA && c.ShowListing {
+		return fmt.Errorf("SPA mode is incompatible with SHOW_LISTING=true")
 	}
 
 	return nil
@@ -182,6 +218,11 @@ func (c *Config) Summary() string {
 	fmt.Fprintf(&b, "  Referrers:    %v\n", c.Referrers)
 	fmt.Fprintf(&b, "  AccessKey:    %t\n", c.AccessKey != "")
 	fmt.Fprintf(&b, "  CustomHeaders: %v\n", c.CustomHeaders)
+	fmt.Fprintf(&b, "  SPA:          %t\n", c.SPA)
+	fmt.Fprintf(&b, "  Compression:  %t\n", c.Compression)
+	fmt.Fprintf(&b, "  HideDotFiles: %t\n", c.HideDotFiles)
+	fmt.Fprintf(&b, "  LogFormat:    %s\n", c.LogFormat)
+	fmt.Fprintf(&b, "  Metrics:      %t\n", c.Metrics)
 	return b.String()
 }
 

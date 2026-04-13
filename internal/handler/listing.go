@@ -90,7 +90,7 @@ func fileCategory(name string) string {
 }
 
 // renderListing reads a directory and renders the HTML listing template.
-func renderListing(w http.ResponseWriter, _ *http.Request, fsPath, urlPath string) {
+func renderListing(w http.ResponseWriter, _ *http.Request, fsPath, urlPath string, hideDot bool) {
 	entries, err := os.ReadDir(fsPath)
 	if err != nil {
 		http.Error(w, "Failed to read directory", http.StatusInternalServerError)
@@ -120,12 +120,17 @@ func renderListing(w http.ResponseWriter, _ *http.Request, fsPath, urlPath strin
 
 	listing := make([]ListingEntry, 0, len(entries))
 	for _, e := range entries {
+		name := e.Name()
+
+		// Skip dot files when hidden.
+		if hideDot && strings.HasPrefix(name, ".") {
+			continue
+		}
+
 		info, err := e.Info()
 		if err != nil {
 			continue
 		}
-
-		name := e.Name()
 		href := name
 		if e.IsDir() {
 			href += "/"
