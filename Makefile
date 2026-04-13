@@ -218,7 +218,7 @@ deploy: build ## Build binary + run local server
 	@sleep 0.5
 	@mkdir -p $(DEPLOY_VOLUME)
 	@echo "Starting $(APP_NAME) on port $(DEPLOY_PORT)..."
-	@FOLDER=$(DEPLOY_VOLUME) PORT=$(DEPLOY_PORT) SHOW_LISTING=true ./bin/$(APP_NAME) &
+	@FOLDER=$(DEPLOY_VOLUME) PORT=$(DEPLOY_PORT) SHOW_LISTING=true METRICS=true ./bin/$(APP_NAME) &
 	@sleep 1
 	@echo "Server running at http://localhost:$(DEPLOY_PORT) (PID: $$(pgrep -f 'bin/$(APP_NAME)'))"
 
