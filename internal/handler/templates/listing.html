@@ -819,7 +819,7 @@
         window.copyPath=function(e){
             e.stopPropagation();e.preventDefault();
             var btn=e.currentTarget,path=btn.getAttribute('data-path');
-            navigator.clipboard.writeText(path).then(function(){
+            navigator.clipboard.writeText(window.location.origin+path).then(function(){
                 btn.classList.add('copied');
                 btn.innerHTML='<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>';
                 setTimeout(function(){
