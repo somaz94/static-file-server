@@ -214,8 +214,8 @@ pr: check-gh ## Run tests, push, and create PR (usage: make pr title="Add featur
 .PHONY: deploy
 deploy: ## Deploy as Docker container (local)
 	@if ! $(CONTAINER_TOOL) image inspect ${IMG} >/dev/null 2>&1; then \
-		echo "\033[33m⚠ Image ${IMG} not found. Run 'make docker-build' first.\033[0m"; \
-		exit 1; \
+		echo "\033[33m⚠ Image ${IMG} not found locally. Pulling from registry...\033[0m"; \
+		$(CONTAINER_TOOL) pull ${IMG} || { echo "\033[31m✗ Pull failed. Run 'make docker-build' to build locally.\033[0m"; exit 1; }; \
 	fi
 	@mkdir -p $(DEPLOY_VOLUME)
 	@echo "Stopping existing container (if any)..."
