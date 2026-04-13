@@ -14,6 +14,8 @@ Feature-compatible with halverneus/static-file-server with improved directory li
 - `internal/handler/templates/` - Embedded HTML template with icons, search, preview
 - `internal/server/` - HTTP/HTTPS server lifecycle
 - `internal/version/` - Build version metadata injected via ldflags
+- `deploy/` - Kubernetes manifests (Deployment + Service)
+- `testdata/` - Sample files for local deploy testing
 
 ## Build & Run
 
@@ -34,6 +36,13 @@ make cross-build      # Cross-compile for multiple platforms
 make version          # Print version info
 make docker-build     # Build Docker image
 make docker-buildx    # Multi-arch Docker build + push
+make deploy           # Docker: build + run container on :8080
+make test-deploy      # Smoke test against running container
+make undeploy         # Docker: stop + remove container
+make deploy-k8s       # Kubernetes: apply deployment + service
+make undeploy-k8s     # Kubernetes: delete deployment + service
+make install          # Install binary to /usr/local/bin
+make uninstall        # Remove binary from /usr/local/bin
 ```
 
 ## Configuration Priority

@@ -30,10 +30,17 @@ GOLANGCI_LINT_VERSION ?= v2.1.6
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
-.PHONY: help build test test-unit test-integration cover clean install fmt vet run \
+# Deploy
+DEPLOY_NAME ?= $(APP_NAME)
+DEPLOY_PORT ?= 8080
+DEPLOY_VOLUME ?= $(CURDIR)/testdata
+K8S_NAMESPACE ?= default
+
+.PHONY: help build test test-unit test-integration cover clean install uninstall fmt vet run \
 	lint lint-fix version \
 	docker-build docker-push docker-buildx docker-buildx-tag docker-buildx-latest \
-	cross-build
+	cross-build \
+	deploy undeploy test-deploy deploy-k8s undeploy-k8s
 
 ##@ General
 
@@ -88,6 +95,9 @@ cover: ## Generate HTML coverage report
 install: build ## Install binary to /usr/local/bin
 	cp bin/$(APP_NAME) /usr/local/bin/$(APP_NAME)
 
+uninstall: ## Remove binary from /usr/local/bin
+	rm -f /usr/local/bin/$(APP_NAME)
+
 cross-build: ## Build for multiple OS/arch (output: dist/)
 	@mkdir -p dist
 	@for platform in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do \
@@ -132,6 +142,50 @@ docker-buildx-latest: ## Build and push multi-arch image with latest tag
 
 docker-buildx: ## Build and push both version and latest tags
 docker-buildx: docker-buildx-tag docker-buildx-latest
+
+##@ Deploy
+
+deploy: docker-build ## Deploy as Docker container (local)
+	@mkdir -p $(DEPLOY_VOLUME)
+	@echo "Stopping existing container (if any)..."
+	-@$(CONTAINER_TOOL) rm -f $(DEPLOY_NAME) 2>/dev/null
+	@echo "Starting $(DEPLOY_NAME) on port $(DEPLOY_PORT)..."
+	$(CONTAINER_TOOL) run -d \
+		--name $(DEPLOY_NAME) \
+		-p $(DEPLOY_PORT):8080 \
+		-v $(DEPLOY_VOLUME):/web:ro \
+		${IMG}
+	@echo "Container $(DEPLOY_NAME) running at http://localhost:$(DEPLOY_PORT)"
+
+undeploy: ## Stop and remove Docker container
+	@echo "Stopping $(DEPLOY_NAME)..."
+	-$(CONTAINER_TOOL) rm -f $(DEPLOY_NAME) 2>/dev/null
+	@echo "Container $(DEPLOY_NAME) removed."
+
+test-deploy: ## Smoke test against running container
+	@echo "Testing http://localhost:$(DEPLOY_PORT) ..."
+	@for i in 1 2 3 4 5; do \
+		STATUS=$$(curl -s -o /dev/null -w '%{http_code}' http://localhost:$(DEPLOY_PORT)/ 2>/dev/null) && \
+		if [ "$$STATUS" = "200" ]; then \
+			echo "OK: HTTP $$STATUS"; \
+			exit 0; \
+		fi; \
+		echo "Waiting... (attempt $$i)"; \
+		sleep 1; \
+	done; \
+	echo "FAIL: Server not responding"; \
+	exit 1
+
+deploy-k8s: ## Deploy to Kubernetes cluster
+	@echo "Deploying to namespace $(K8S_NAMESPACE)..."
+	kubectl apply -f deploy/deployment.yaml -n $(K8S_NAMESPACE)
+	kubectl rollout status deployment/$(DEPLOY_NAME) -n $(K8S_NAMESPACE) --timeout=60s
+	@echo "Deployed. Service: kubectl get svc $(DEPLOY_NAME) -n $(K8S_NAMESPACE)"
+
+undeploy-k8s: ## Remove from Kubernetes cluster
+	@echo "Removing from namespace $(K8S_NAMESPACE)..."
+	kubectl delete -f deploy/deployment.yaml -n $(K8S_NAMESPACE) --ignore-not-found
+	@echo "Removed."
 
 ##@ Cleanup
 

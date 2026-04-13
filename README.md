@@ -118,6 +118,32 @@ make docker-buildx-latest  # Multi-arch build + push (latest only)
 
 <br/>
 
+## Deploy
+
+### Local (Docker)
+
+```bash
+make deploy               # Build image + run container on :8080
+make test-deploy           # Smoke test against running container
+make undeploy              # Stop and remove container
+
+# Custom port and volume
+make deploy DEPLOY_PORT=3000 DEPLOY_VOLUME=/path/to/files
+```
+
+### Kubernetes
+
+```bash
+make deploy-k8s                         # Deploy to default namespace
+make deploy-k8s K8S_NAMESPACE=web       # Deploy to specific namespace
+make undeploy-k8s                       # Remove from cluster
+make undeploy-k8s K8S_NAMESPACE=web     # Remove from specific namespace
+```
+
+Manifests are in `deploy/deployment.yaml` (Deployment + Service).
+
+<br/>
+
 ## Directory Listing UI
 
 The directory listing features a modern, responsive design:
@@ -139,6 +165,8 @@ internal/config/        # Configuration loading (env > YAML > defaults)
 internal/handler/       # HTTP middleware chain + directory listing
 internal/server/        # HTTP/HTTPS server lifecycle
 internal/version/       # Build version metadata (ldflags)
+deploy/                 # Kubernetes manifests (Deployment + Service)
+testdata/               # Sample files for local deploy testing
 ```
 
 <br/>

@@ -1,0 +1,13 @@
+bin/
+dist/
+coverage.out
+coverage.html
+testdata/
+*.md
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+Dockerfile.cross
+Makefile
+deploy/
