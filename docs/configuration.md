@@ -22,7 +22,7 @@ static-file-server supports three configuration methods. Priority (highest to lo
 | `URL_PREFIX` | string | `""` | URL path prefix (must start with `/`, no trailing `/`) |
 | `TLS_CERT` | string | `""` | TLS certificate file path |
 | `TLS_KEY` | string | `""` | TLS private key file path |
-| `TLS_MIN_VERS` | string | `""` | Minimum TLS version (`TLS10`, `TLS11`, `TLS12`, `TLS13`) |
+| `TLS_MIN_VERS` | string | `""` | Minimum TLS version (`TLS12`, `TLS13`; default: `TLS12`) |
 | `REFERRERS` | string | `""` | Comma-separated allowed referrer prefixes |
 | `ACCESS_KEY` | string | `""` | URL parameter access key |
 | `CUSTOM_HEADERS` | string | `""` | Comma-separated `Key:Value` custom response headers (e.g. `X-Frame-Options:DENY,Cache-Control:no-cache`) |

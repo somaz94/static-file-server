@@ -161,10 +161,10 @@ func (c *Config) validate() error {
 
 	if c.TLSMinVers != "" {
 		switch strings.ToUpper(strings.TrimSpace(c.TLSMinVers)) {
-		case "TLS10", "TLS11", "TLS12", "TLS13":
+		case "TLS11", "TLS12", "TLS13":
 			// valid
 		default:
-			return fmt.Errorf("invalid TLS_MIN_VERS %q: must be TLS10, TLS11, TLS12, or TLS13", c.TLSMinVers)
+			return fmt.Errorf("invalid TLS_MIN_VERS %q: must be TLS11, TLS12, or TLS13", c.TLSMinVers)
 		}
 	}
 

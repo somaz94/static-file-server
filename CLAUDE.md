@@ -2,8 +2,7 @@
 
 ## Overview
 
-Lightweight, zero-dependency static file server written in Go.
-Feature-compatible with halverneus/static-file-server with improved directory listing UI.
+Lightweight, zero-dependency static file server written in Go with modern directory listing UI.
 
 ## Architecture
 
@@ -76,20 +75,29 @@ make pr title="..."   # Test + push + create PR
 | `URL_PREFIX` | string | `""` | URL path prefix (e.g. `/my/prefix`) |
 | `TLS_CERT` | string | `""` | TLS certificate file path |
 | `TLS_KEY` | string | `""` | TLS private key file path |
-| `TLS_MIN_VERS` | string | `""` | Minimum TLS version (TLS10/TLS11/TLS12/TLS13) |
+| `TLS_MIN_VERS` | string | `""` | Minimum TLS version (TLS12/TLS13, default: TLS12) |
 | `REFERRERS` | string | `""` | Comma-separated allowed referrer prefixes |
-| `ACCESS_KEY` | string | `""` | URL parameter access key |
+| `ACCESS_KEY` | string | `""` | URL parameter access key (SHA-256 code support) |
 | `CUSTOM_HEADERS` | string | `""` | Comma-separated `Key:Value` custom response headers |
+| `SPA` | bool | `false` | SPA mode: serve index.html for non-file routes |
+| `COMPRESSION` | bool | `false` | Enable gzip compression (skips binary/Range) |
+| `HIDE_DOT_FILES` | bool | `false` | Hide dot files from serving and listings |
+| `LOG_FORMAT` | string | `text` | Log format: `text` or `json` |
+| `METRICS` | bool | `false` | Enable Prometheus metrics at `/metrics` |
 
 ## Middleware Chain (outer to inner)
 
-1. Debug logging
-2. URL prefix stripping
-3. Access key verification
-4. Referrer validation
-5. CORS headers
-6. Custom response headers
-7. File handler (index/listing/basic)
+1. Prometheus metrics (optional)
+2. Health check (`/healthz`, bypasses all middleware)
+3. Debug logging with status/duration (optional, text or JSON)
+4. URL prefix stripping
+5. Access key verification (SHA-256)
+6. Referrer validation
+7. CORS headers
+8. Custom response headers
+9. Gzip compression (optional)
+10. Dot file filtering (optional)
+11. File handler (SPA / index / listing / basic)
 
 ## Directory Listing UI Features
 

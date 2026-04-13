@@ -9,8 +9,6 @@
 
 A lightweight, zero-dependency static file server written in Go with a modern directory listing UI.
 
-Feature-compatible with [halverneus/static-file-server](https://github.com/halverneus/static-file-server) — drop-in replacement with enhanced UI.
-
 <br/>
 
 ## Features
@@ -141,7 +139,7 @@ FOLDER=./public PORT=3000 CORS=true ./bin/static-file-server
 | `URL_PREFIX` | string | `""` | URL path prefix (e.g. `/my/prefix`) |
 | `TLS_CERT` | string | `""` | TLS certificate file path |
 | `TLS_KEY` | string | `""` | TLS private key file path |
-| `TLS_MIN_VERS` | string | `""` | Minimum TLS version (TLS10/TLS11/TLS12/TLS13) |
+| `TLS_MIN_VERS` | string | `""` | Minimum TLS version (TLS12/TLS13, default: TLS12) |
 | `REFERRERS` | string | `""` | Comma-separated allowed referrer prefixes |
 | `ACCESS_KEY` | string | `""` | URL parameter access key |
 | `CUSTOM_HEADERS` | string | `""` | Comma-separated `Key:Value` response headers |

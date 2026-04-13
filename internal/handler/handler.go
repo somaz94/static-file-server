@@ -293,7 +293,7 @@ func withReferrer(next http.Handler, referrers []string) http.Handler {
 	})
 }
 
-// withAccessKey validates URL parameter access key or MD5 code.
+// withAccessKey validates URL parameter access key or SHA-256 code.
 func withAccessKey(next http.Handler, accessKey string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		query := r.URL.Query()
@@ -304,7 +304,7 @@ func withAccessKey(next http.Handler, accessKey string) http.Handler {
 			return
 		}
 
-		// MD5 code match: ?code=<MD5(path + key)>
+		// SHA-256 code match: ?code=<SHA256(path + key)>
 		if code := query.Get("code"); code != "" {
 			expected := fmt.Sprintf("%X", sha256.Sum256([]byte(r.URL.Path+accessKey)))
 			if strings.EqualFold(code, expected) {
