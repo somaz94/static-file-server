@@ -54,8 +54,8 @@ func Default() *Config {
 		SPA:           false,
 		Compression:   false,
 		HideDotFiles:  false,
-		LogFormat:      "text",
-		Metrics:        false,
+		LogFormat:     "text",
+		Metrics:       false,
 	}
 }
 

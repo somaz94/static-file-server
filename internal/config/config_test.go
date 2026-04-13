@@ -148,14 +148,14 @@ func TestLoadEnvBoolVariants(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got, ok := lookupEnvBool("TEST_BOOL")
+			_, ok := lookupEnvBool("TEST_BOOL")
 			// Before setting env
 			if ok {
 				t.Error("expected not ok when env not set")
 			}
 
 			t.Setenv("TEST_BOOL", tt.input)
-			got, ok = lookupEnvBool("TEST_BOOL")
+			got, ok := lookupEnvBool("TEST_BOOL")
 			if ok != tt.valid {
 				t.Errorf("input %q: expected valid=%v, got %v", tt.input, tt.valid, ok)
 			}
@@ -335,20 +335,21 @@ func TestLoadEnvAllVariables(t *testing.T) {
 		t.Fatalf("Load failed: %v", err)
 	}
 
+	assertLoadEnvBools(t, cfg)
+	assertLoadEnvStrings(t, cfg)
+
+	if len(cfg.Referrers) != 2 || cfg.Referrers[0] != "https://a.com" {
+		t.Errorf("expected referrers [https://a.com https://b.com], got %v", cfg.Referrers)
+	}
+}
+
+func assertLoadEnvBools(t *testing.T, cfg *Config) {
+	t.Helper()
 	if !cfg.CORS {
 		t.Error("expected CORS true")
 	}
 	if !cfg.Debug {
 		t.Error("expected Debug true")
-	}
-	if cfg.Host != "myhost" {
-		t.Errorf("expected host myhost, got %s", cfg.Host)
-	}
-	if cfg.Port != 9090 {
-		t.Errorf("expected port 9090, got %d", cfg.Port)
-	}
-	if cfg.Folder != "/data" {
-		t.Errorf("expected folder /data, got %s", cfg.Folder)
 	}
 	if cfg.AllowIndex {
 		t.Error("expected AllowIndex false")
@@ -356,23 +357,28 @@ func TestLoadEnvAllVariables(t *testing.T) {
 	if cfg.ShowListing {
 		t.Error("expected ShowListing false")
 	}
-	if cfg.URLPrefix != "/api" {
-		t.Errorf("expected URLPrefix /api, got %s", cfg.URLPrefix)
+}
+
+func assertLoadEnvStrings(t *testing.T, cfg *Config) {
+	t.Helper()
+	checks := []struct {
+		name, got, want string
+	}{
+		{"Host", cfg.Host, "myhost"},
+		{"Folder", cfg.Folder, "/data"},
+		{"URLPrefix", cfg.URLPrefix, "/api"},
+		{"TLSCert", cfg.TLSCert, "/cert.pem"},
+		{"TLSKey", cfg.TLSKey, "/key.pem"},
+		{"TLSMinVers", cfg.TLSMinVers, "TLS12"},
+		{"AccessKey", cfg.AccessKey, "mykey"},
 	}
-	if cfg.TLSCert != "/cert.pem" {
-		t.Errorf("expected TLSCert /cert.pem, got %s", cfg.TLSCert)
+	for _, c := range checks {
+		if c.got != c.want {
+			t.Errorf("expected %s %q, got %q", c.name, c.want, c.got)
+		}
 	}
-	if cfg.TLSKey != "/key.pem" {
-		t.Errorf("expected TLSKey /key.pem, got %s", cfg.TLSKey)
-	}
-	if cfg.TLSMinVers != "TLS12" {
-		t.Errorf("expected TLSMinVers TLS12, got %s", cfg.TLSMinVers)
-	}
-	if len(cfg.Referrers) != 2 || cfg.Referrers[0] != "https://a.com" {
-		t.Errorf("expected referrers [https://a.com https://b.com], got %v", cfg.Referrers)
-	}
-	if cfg.AccessKey != "mykey" {
-		t.Errorf("expected AccessKey mykey, got %s", cfg.AccessKey)
+	if cfg.Port != 9090 {
+		t.Errorf("expected port 9090, got %d", cfg.Port)
 	}
 }
 
