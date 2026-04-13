@@ -35,6 +35,16 @@ spec:
               value: "true"
             - name: ALLOW_INDEX
               value: "true"
+            # - name: SPA
+            #   value: "false"
+            # - name: COMPRESSION
+            #   value: "false"
+            # - name: HIDE_DOT_FILES
+            #   value: "false"
+            # - name: LOG_FORMAT
+            #   value: "text"
+            # - name: METRICS
+            #   value: "false"
           resources:
             requests:
               cpu: 50m

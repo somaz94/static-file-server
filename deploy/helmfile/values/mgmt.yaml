@@ -32,6 +32,11 @@ config:
   debug: "true"
   allowIndex: "true"
   showListing: "true"
+  # spa: "false"
+  # compression: "true"
+  # hideDotFiles: "true"
+  # logFormat: "json"
+  # metrics: "true"
 
 service:
   type: ClusterIP

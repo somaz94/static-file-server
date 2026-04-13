@@ -52,6 +52,12 @@ config:
   accessKey: ""
   # Custom response headers (optional, comma-separated Key:Value pairs)
   customHeaders: ""
+  # New features (optional)
+  spa: "false"
+  compression: "false"
+  hideDotFiles: "false"
+  logFormat: "text"
+  metrics: "false"
 
 # Extra environment variables
 extraEnv: []

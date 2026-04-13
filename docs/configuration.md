@@ -26,6 +26,11 @@ static-file-server supports three configuration methods. Priority (highest to lo
 | `REFERRERS` | string | `""` | Comma-separated allowed referrer prefixes |
 | `ACCESS_KEY` | string | `""` | URL parameter access key |
 | `CUSTOM_HEADERS` | string | `""` | Comma-separated `Key:Value` custom response headers (e.g. `X-Frame-Options:DENY,Cache-Control:no-cache`) |
+| `SPA` | bool | `false` | SPA mode: serve `index.html` for all non-file routes (incompatible with `SHOW_LISTING=true`) |
+| `COMPRESSION` | bool | `false` | Enable gzip compression (skips binary files and Range requests) |
+| `HIDE_DOT_FILES` | bool | `false` | Hide dot files/directories (e.g. `.env`, `.git`) from serving and listings |
+| `LOG_FORMAT` | string | `text` | Log format: `text` (default) or `json` (structured logging) |
+| `METRICS` | bool | `false` | Enable Prometheus-compatible metrics at `/metrics` |
 
 Boolean values accept: `1`, `true`, `t`, `yes`, `y` (true) and `0`, `false`, `f`, `no`, `n` (false).
 
@@ -57,6 +62,11 @@ access-key: "my-secret-key"
 custom-headers:
   X-Frame-Options: "DENY"
   Cache-Control: "public, max-age=3600"
+spa: false
+compression: true
+hide-dot-files: true
+log-format: "json"
+metrics: true
 ```
 
 <br/>
@@ -84,8 +94,8 @@ When `ACCESS_KEY` is set, all requests must include authentication:
 # Direct key
 GET /file.txt?key=my-secret-key
 
-# MD5 code (case-insensitive)
-GET /file.txt?code=<MD5("/file.txt" + "my-secret-key")>
+# SHA-256 code (case-insensitive)
+GET /file.txt?code=<SHA256("/file.txt" + "my-secret-key")>
 ```
 
 ### Referrer Validation
@@ -112,8 +122,8 @@ Both `TLS_CERT` and `TLS_KEY` must be set together:
 TLS_CERT=/path/to/cert.pem TLS_KEY=/path/to/key.pem static-file-server
 ```
 
-Supported minimum TLS versions: `TLS10`, `TLS11`, `TLS12`, `TLS13`.
-Default is `TLS10` when not specified.
+Supported minimum TLS versions: `TLS11`, `TLS12`, `TLS13`.
+Default is `TLS12` when not specified.
 
 <br/>
 
@@ -130,3 +140,72 @@ Rules:
 - Must start with `/`
 - Must not end with `/`
 - Requests without the prefix return 404
+
+<br/>
+
+## SPA Mode
+
+For single-page applications (React, Vue, Angular). When enabled, non-file routes serve `/index.html` instead of 404:
+
+```bash
+SPA=true SHOW_LISTING=false static-file-server
+```
+
+Note: `SPA=true` is incompatible with `SHOW_LISTING=true`.
+
+<br/>
+
+## Gzip Compression
+
+Compress text-based responses (HTML, CSS, JS, JSON, etc.) to reduce transfer size:
+
+```bash
+COMPRESSION=true static-file-server
+```
+
+Compression is automatically skipped for:
+- Already compressed files (`.apk`, `.jpg`, `.mp4`, `.zip`, `.gz`, `.woff2`, etc.)
+- Range requests (partial downloads / resume)
+- Clients that don't send `Accept-Encoding: gzip`
+
+<br/>
+
+## Hidden Dot Files
+
+Block access to dot files and directories (e.g. `.env`, `.git`, `.DS_Store`):
+
+```bash
+HIDE_DOT_FILES=true static-file-server
+```
+
+Dot files are also excluded from directory listings when enabled.
+
+<br/>
+
+## Structured Logging
+
+Switch debug logs to JSON format for log aggregation (Loki, ELK, CloudWatch):
+
+```bash
+DEBUG=true LOG_FORMAT=json static-file-server
+```
+
+JSON log example:
+```json
+{"time":"2026-04-13T14:30:00Z","remote":"192.168.1.10:54321","method":"GET","path":"/files/app.apk","proto":"HTTP/1.1","host":"example.com","status":200,"duration_ms":42}
+```
+
+<br/>
+
+## Prometheus Metrics
+
+Enable a `/metrics` endpoint with Prometheus-compatible metrics:
+
+```bash
+METRICS=true static-file-server
+```
+
+Exposed metrics:
+- `static_file_server_requests_total{method,status}` — request counter
+- `static_file_server_response_bytes_total` — total response bytes
+- `static_file_server_request_duration_seconds_bucket{le}` — latency histogram

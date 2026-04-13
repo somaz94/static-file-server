@@ -24,6 +24,9 @@ Feature-compatible with [halverneus/static-file-server](https://github.com/halve
 ![Helm](https://img.shields.io/badge/Helm_Chart-0F1689?logo=helm&logoColor=white)
 ![Health Check](https://img.shields.io/badge/Health_Check-green?logo=files&logoColor=white)
 ![Custom Headers](https://img.shields.io/badge/Custom_Headers-orange?logo=files&logoColor=white)
+![SPA Mode](https://img.shields.io/badge/SPA_Mode-purple?logo=files&logoColor=white)
+![Gzip](https://img.shields.io/badge/Gzip_Compression-purple?logo=files&logoColor=white)
+![Metrics](https://img.shields.io/badge/Prometheus_Metrics-purple?logo=files&logoColor=white)
 
 - Modern, responsive directory listing with dark mode support
 - Dark/light mode toggle (manual switch + system preference detection)
@@ -41,7 +44,12 @@ Feature-compatible with [halverneus/static-file-server](https://github.com/halve
 - Access control (URL keys, referrer validation)
 - URL prefix routing
 - Four serving modes (basic / index / listing / both)
-- Debug request logging
+- SPA mode for single-page applications (React, Vue, Angular)
+- Gzip compression (auto-skips binary files and Range requests)
+- Prometheus-compatible metrics endpoint (`/metrics`)
+- JSON structured logging for log aggregation
+- Dot file filtering (`.env`, `.git`, etc.)
+- Debug request logging with status code and response time
 
 <br/>
 
@@ -50,7 +58,7 @@ Feature-compatible with [halverneus/static-file-server](https://github.com/halve
 <br/>
 
 ### Prerequisites
-- Go 1.24+ (for building from source)
+- Go 1.26+ (for building from source)
 - Docker (optional, for container deployment)
 - Kubernetes v1.16+ (optional, for K8s/Helm deployment)
 
@@ -137,6 +145,11 @@ FOLDER=./public PORT=3000 CORS=true ./bin/static-file-server
 | `REFERRERS` | string | `""` | Comma-separated allowed referrer prefixes |
 | `ACCESS_KEY` | string | `""` | URL parameter access key |
 | `CUSTOM_HEADERS` | string | `""` | Comma-separated `Key:Value` response headers |
+| `SPA` | bool | `false` | SPA mode: serve `index.html` for non-file routes |
+| `COMPRESSION` | bool | `false` | Enable gzip compression |
+| `HIDE_DOT_FILES` | bool | `false` | Hide dot files from serving and listings |
+| `LOG_FORMAT` | string | `text` | Log format: `text` or `json` |
+| `METRICS` | bool | `false` | Enable Prometheus metrics at `/metrics` |
 
 For detailed configuration, see [Configuration Guide](docs/configuration.md).
 
@@ -157,6 +170,10 @@ access-key: "my-secret-key"
 custom-headers:
   X-Frame-Options: "DENY"
   Cache-Control: "public, max-age=3600"
+compression: true
+hide-dot-files: true
+log-format: "json"
+metrics: true
 ```
 
 <br/>
@@ -267,12 +284,17 @@ testdata/               # Sample files for local deploy testing
 
 Applied outer to inner:
 
-1. Debug logging (optional)
-2. URL prefix stripping (optional)
-3. Access key verification (optional)
-4. Referrer validation (optional)
-5. CORS headers (optional)
-6. File handler (index/listing/basic)
+1. Prometheus metrics (optional)
+2. Health check (`/healthz`, bypasses all middleware)
+3. Debug logging with status/duration (optional, text or JSON)
+4. URL prefix stripping (optional)
+5. Access key verification (optional)
+6. Referrer validation (optional)
+7. CORS headers (optional)
+8. Custom response headers (optional)
+9. Gzip compression (optional, skips binary/Range)
+10. Dot file filtering (optional)
+11. File handler (SPA / index / listing / basic)
 
 <br/>
 

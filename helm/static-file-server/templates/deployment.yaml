@@ -80,6 +80,26 @@ spec:
             - name: CUSTOM_HEADERS
               value: {{ .Values.config.customHeaders | quote }}
             {{- end }}
+            {{- if eq (.Values.config.spa | toString) "true" }}
+            - name: SPA
+              value: {{ .Values.config.spa | quote }}
+            {{- end }}
+            {{- if eq (.Values.config.compression | toString) "true" }}
+            - name: COMPRESSION
+              value: {{ .Values.config.compression | quote }}
+            {{- end }}
+            {{- if eq (.Values.config.hideDotFiles | toString) "true" }}
+            - name: HIDE_DOT_FILES
+              value: {{ .Values.config.hideDotFiles | quote }}
+            {{- end }}
+            {{- if ne (.Values.config.logFormat | default "text") "text" }}
+            - name: LOG_FORMAT
+              value: {{ .Values.config.logFormat | quote }}
+            {{- end }}
+            {{- if eq (.Values.config.metrics | toString) "true" }}
+            - name: METRICS
+              value: {{ .Values.config.metrics | quote }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
