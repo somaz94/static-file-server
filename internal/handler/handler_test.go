@@ -738,6 +738,51 @@ func TestWithCompressionSkipBinary(t *testing.T) {
 	}
 }
 
+// --- Flush tests ---
+
+func TestResponseRecorderFlush(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("data"))
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+	})
+	h := withLogging(inner, "text")
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Body.String() != "data" {
+		t.Errorf("expected 'data', got %q", w.Body.String())
+	}
+	if w.Flushed != true {
+		t.Error("expected Flush to be called on underlying ResponseWriter")
+	}
+}
+
+func TestGzipResponseWriterFlush(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("streaming data"))
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+	})
+	h := withCompression(inner)
+
+	req := httptest.NewRequest("GET", "/page.html", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Header().Get("Content-Encoding") != "gzip" {
+		t.Error("expected gzip encoding")
+	}
+	if w.Flushed != true {
+		t.Error("expected Flush to be called through gzip wrapper")
+	}
+}
+
 // --- Metrics tests ---
 
 func TestWithMetrics(t *testing.T) {

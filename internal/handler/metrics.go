@@ -123,16 +123,6 @@ func (m *metricsCollector) handler() http.HandlerFunc {
 	}
 }
 
-func (m *metricsCollector) totalRequests() int64 {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	var total int64
-	for _, c := range m.requestCounts {
-		total += c.Load()
-	}
-	return total
-}
-
 // withMetrics wraps a handler to collect request metrics and serves /metrics.
 func withMetrics(next http.Handler) http.Handler {
 	collector := newMetricsCollector()
