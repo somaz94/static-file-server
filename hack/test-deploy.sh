@@ -128,9 +128,21 @@ SUB_BODY=$(curl -s "${BASE}/subdir/")
 check "Subdir has parent link"    "$(echo "$SUB_BODY" | grep -q 'class="parent"' && echo true || echo false)"
 
 # ---------------------------------------------------------------
-# 8. Batch download API
+# 8. Metrics endpoint
 # ---------------------------------------------------------------
-echo "[8/8] Batch download API..."
+echo "[8/9] Metrics endpoint..."
+METRICS_STATUS=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/metrics" 2>/dev/null) || true
+check "GET /metrics => 200"         "$([ "$METRICS_STATUS" = "200" ] && echo true || echo false)"
+
+METRICS_BODY=$(curl -s "${BASE}/metrics" 2>/dev/null) || true
+check "Metrics has requests_total"  "$(echo "$METRICS_BODY" | grep -q 'static_file_server_requests_total' && echo true || echo false)"
+check "Metrics has duration_sum"    "$(echo "$METRICS_BODY" | grep -q 'static_file_server_request_duration_seconds_sum' && echo true || echo false)"
+check "Metrics has duration_count"  "$(echo "$METRICS_BODY" | grep -q 'static_file_server_request_duration_seconds_count' && echo true || echo false)"
+
+# ---------------------------------------------------------------
+# 9. Batch download API
+# ---------------------------------------------------------------
+echo "[9/9] Batch download API..."
 ZIP_OK=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
     -H 'Content-Type: application/json' \
     -d '{"files":["hello.txt"]}' \

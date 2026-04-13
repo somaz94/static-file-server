@@ -208,4 +208,6 @@ METRICS=true static-file-server
 Exposed metrics:
 - `static_file_server_requests_total{method,status}` — request counter
 - `static_file_server_response_bytes_total` — total response bytes
-- `static_file_server_request_duration_seconds_bucket{le}` — latency histogram
+- `static_file_server_request_duration_seconds_bucket{le}` — latency histogram (cumulative buckets)
+- `static_file_server_request_duration_seconds_sum` — total observed duration
+- `static_file_server_request_duration_seconds_count` — total number of observations

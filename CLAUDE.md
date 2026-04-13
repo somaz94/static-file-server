@@ -86,7 +86,7 @@ make pr title="..."   # Test + push + create PR
 | `COMPRESSION` | bool | `false` | Enable gzip compression (skips binary/Range) |
 | `HIDE_DOT_FILES` | bool | `false` | Hide dot files from serving and listings |
 | `LOG_FORMAT` | string | `text` | Log format: `text` or `json` |
-| `METRICS` | bool | `false` | Enable Prometheus metrics at `/metrics` |
+| `METRICS` | bool | `false` | Enable Prometheus metrics at `/metrics` (cumulative histogram with `_sum`/`_count`) |
 
 ## Middleware Chain (outer to inner)
 
