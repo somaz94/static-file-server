@@ -42,6 +42,7 @@ if [[ "$1" == "--current" ]]; then
     printf "  %-25s %s\n" "Chart.yaml (version):" "$(grep '^version:' "${ROOT_DIR}/helm/${PROJECT_NAME}/Chart.yaml" | awk '{print $2}')"
     printf "  %-25s %s\n" "Chart.yaml (appVersion):" "$(grep '^appVersion:' "${ROOT_DIR}/helm/${PROJECT_NAME}/Chart.yaml" | awk -F'"' '{print $2}')"
     printf "  %-25s %s\n" "values.yaml (image.tag):" "$(grep 'tag:' "${ROOT_DIR}/helm/${PROJECT_NAME}/values.yaml" | head -1 | awk '{print $2}' | tr -d '\"')"
+    printf "  %-25s %s\n" "deployment.yaml (image):" "$(grep -o "${PROJECT_NAME}:v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*" "${ROOT_DIR}/deploy/deployment.yaml" | head -1 | cut -d: -f2)"
     exit 0
 fi
 
@@ -112,6 +113,11 @@ update_file "${ROOT_DIR}/helm/${PROJECT_NAME}/values.yaml" \
     "tag: .*" \
     "tag: \"${NEW_VERSION}\"" \
     "values.yaml (image.tag)"
+
+update_file "${ROOT_DIR}/deploy/deployment.yaml" \
+    "${PROJECT_NAME}:${CURRENT_VERSION}" \
+    "${PROJECT_NAME}:${NEW_VERSION}" \
+    "deploy/deployment.yaml (image)"
 
 echo ""
 echo "==> Updating documentation files..."

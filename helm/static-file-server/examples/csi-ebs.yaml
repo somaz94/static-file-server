@@ -1,0 +1,40 @@
+# Example: AWS EBS CSI static provisioning
+#
+# Usage:
+#   helm install my-server ./helm/static-file-server -f helm/static-file-server/examples/csi-ebs.yaml
+#
+# Prerequisites:
+#   - AWS EBS CSI driver installed (https://github.com/kubernetes-sigs/aws-ebs-csi-driver)
+#   - EBS volume created in the same AZ as the node
+
+replicaCount: 1
+
+config:
+  folder: /web
+  port: "8080"
+  allowIndex: "true"
+  showListing: "true"
+
+persistentVolumes:
+  enabled: true
+  items:
+    - name: ebs-file-server-pv
+      storage: 20Gi
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: ebs-sc
+      csi:
+        driver: ebs.csi.aws.com
+        volumeHandle: "vol-0123456789abcdef"  # <-- Replace with EBS volume ID
+        fsType: ext4
+
+persistentVolumeClaims:
+  enabled: true
+  items:
+    - name: ebs-file-server-pvc
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: ebs-sc
+      storage: 20Gi
+      mountPath: /web
+      volumeName: ebs-file-server-pv

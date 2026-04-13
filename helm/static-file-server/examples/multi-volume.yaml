@@ -1,0 +1,53 @@
+# Example: Multiple volumes (main content + extra data)
+#
+# Usage:
+#   helm install my-server ./helm/static-file-server -f helm/static-file-server/examples/multi-volume.yaml
+#
+# Serves /web from NFS PVC, plus mounts an extra ConfigMap at /web/config.
+
+replicaCount: 1
+
+podSecurityContext: {}
+securityContext: {}
+
+config:
+  folder: /web
+  port: "8080"
+  allowIndex: "true"
+  showListing: "true"
+
+# Main content from NFS
+persistentVolumes:
+  enabled: true
+  items:
+    - name: web-content-pv
+      storage: 5Gi
+      accessModes:
+        - ReadWriteMany
+      reclaimPolicy: Retain
+      storageClassName: nfs-client         # <-- Replace
+      nfs:
+        server: "10.10.10.5"              # <-- Replace
+        path: "/volume1/web"              # <-- Replace
+
+persistentVolumeClaims:
+  enabled: true
+  items:
+    - name: web-content-pvc
+      accessModes:
+        - ReadWriteMany
+      storageClassName: nfs-client         # <-- Replace
+      storage: 5Gi
+      mountPath: /web
+      volumeName: web-content-pv
+
+# Extra volume: mount a ConfigMap as additional files
+extraVolumes:
+  - name: app-config
+    configMap:
+      name: my-app-config                 # <-- Must exist in cluster
+
+extraVolumeMounts:
+  - name: app-config
+    mountPath: /web/config
+    readOnly: true

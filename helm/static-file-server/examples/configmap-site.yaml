@@ -1,0 +1,41 @@
+# Example: Small static site served from ConfigMap
+#
+# Usage:
+#   helm install my-server ./helm/static-file-server -f helm/static-file-server/examples/configmap-site.yaml
+#
+# Best for: simple landing pages, status pages, small sites under 1MB total.
+# For larger sites, use PVC or NFS.
+
+replicaCount: 1
+
+config:
+  folder: /web
+  port: "8080"
+  cors: "true"
+  allowIndex: "true"
+  showListing: "false"
+
+content:
+  enabled: true
+  files:
+    index.html: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Welcome</title>
+        <link rel="stylesheet" href="style.css">
+      </head>
+      <body>
+        <div class="container">
+          <h1>Hello World!</h1>
+          <p>Served by static-file-server.</p>
+        </div>
+      </body>
+      </html>
+    style.css: |
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: system-ui, sans-serif; background: #f8fafc; color: #1e293b; }
+      .container { max-width: 600px; margin: 4rem auto; text-align: center; }
+      h1 { font-size: 2rem; margin-bottom: 1rem; }

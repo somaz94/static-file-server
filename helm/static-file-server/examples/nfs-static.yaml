@@ -1,8 +1,7 @@
-# Example: NFS static provisioning with ingress
+# Example: NFS static provisioning (manually manage PV + PVC)
 #
-# Copy and edit:
-#   cp nfs-example.yaml nfs-test-values.yaml
-#   helm install static-file-server ./helm/static-file-server -f helm/static-file-server/examples/nfs-test-values.yaml
+# Usage:
+#   helm install my-server ./helm/static-file-server -f helm/static-file-server/examples/nfs-static.yaml
 
 replicaCount: 2
 revisionHistoryLimit: 1
@@ -25,13 +24,13 @@ service:
 
 ingress:
   enabled: true
-  className: "nginx"
+  className: "nginx"                       # <-- Replace
   annotations:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
     nginx.ingress.kubernetes.io/ssl-passthrough: "false"
     nginx.ingress.kubernetes.io/rewrite-target: /
   hosts:
-    - host: file-server.example.com    # <-- Replace
+    - host: file-server.example.com        # <-- Replace
       paths:
         - path: /
           pathType: ImplementationSpecific
@@ -52,7 +51,6 @@ probes:
     initialDelaySeconds: 5
     periodSeconds: 10
 
-# Static PV (NFS)
 persistentVolumes:
   enabled: true
   items:
@@ -62,19 +60,18 @@ persistentVolumes:
       accessModes:
         - ReadWriteMany
       reclaimPolicy: Retain
-      storageClassName: nfs-client       # <-- Replace
+      storageClassName: nfs-client         # <-- Replace
       nfs:
-        server: "10.0.0.1"              # <-- Replace
-        path: "/exports/web"             # <-- Replace
+        server: "10.10.10.5"              # <-- Replace with NFS server IP
+        path: "/volume1/nfs"              # <-- Replace with NFS export path
 
-# PVC binding to static PV
 persistentVolumeClaims:
   enabled: true
   items:
     - name: static-file-server-pvc
       accessModes:
         - ReadWriteMany
-      storageClassName: nfs-client       # <-- Must match PV
+      storageClassName: nfs-client         # <-- Must match PV
       storage: 5Gi
       mountPath: /web
-      volumeName: static-file-server-pv  # <-- Must match PV name
+      volumeName: static-file-server-pv

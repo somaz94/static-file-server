@@ -1,0 +1,39 @@
+# Example: Ingress with TLS (cert-manager)
+#
+# Usage:
+#   helm install my-server ./helm/static-file-server -f helm/static-file-server/examples/ingress-tls.yaml
+#
+# Prerequisites:
+#   - cert-manager installed
+#   - ClusterIssuer configured (e.g. letsencrypt-prod)
+
+replicaCount: 2
+
+config:
+  folder: /web
+  port: "8080"
+  cors: "true"
+  allowIndex: "true"
+  showListing: "true"
+
+persistence:
+  enabled: true
+  accessMode: ReadWriteMany
+  size: 10Gi
+  storageClass: "nfs-client"               # <-- Replace
+
+ingress:
+  enabled: true
+  className: "nginx"                       # <-- Replace
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  hosts:
+    - host: files.example.com              # <-- Replace
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: files-tls
+      hosts:
+        - files.example.com               # <-- Replace (must match hosts)

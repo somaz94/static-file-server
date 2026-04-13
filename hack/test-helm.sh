@@ -103,11 +103,14 @@ helm template test-release "${CHART_DIR}" \
 echo "  [OK] Full options render successfully"
 echo ""
 
-# 9. Template render (NFS example file)
-echo "--- Template (NFS example values) ---"
-helm template test-release "${CHART_DIR}" \
-    -f "${CHART_DIR}/examples/nfs-example.yaml" > /dev/null
-echo "  [OK] NFS example values render successfully"
+# 9. Template render (all example files)
+echo "--- Template (example values) ---"
+for f in "${CHART_DIR}"/examples/*.yaml; do
+    name=$(basename "$f" .yaml)
+    helm template test-release "${CHART_DIR}" -f "$f" > /dev/null
+    echo "  [OK] ${name}"
+done
 echo ""
 
-echo "==> All Helm chart tests passed! (9/9)"
+TOTAL=$((8 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
+echo "==> All Helm chart tests passed! (${TOTAL} scenarios)"

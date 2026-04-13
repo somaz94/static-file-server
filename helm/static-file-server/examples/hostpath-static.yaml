@@ -1,0 +1,41 @@
+# Example: HostPath static provisioning (single-node / development)
+#
+# Usage:
+#   helm install my-server ./helm/static-file-server -f helm/static-file-server/examples/hostpath-static.yaml
+#
+# Note: hostPath is only suitable for single-node clusters (minikube, kind, k3s).
+# Files must exist at the host path before the pod starts.
+
+replicaCount: 1
+
+podSecurityContext: {}
+securityContext: {}
+
+config:
+  folder: /web
+  port: "8080"
+  allowIndex: "true"
+  showListing: "true"
+
+persistentVolumes:
+  enabled: true
+  items:
+    - name: local-file-server-pv
+      storage: 10Gi
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: manual
+      hostPath:
+        path: /data/static-files           # <-- Replace with host directory
+        type: DirectoryOrCreate
+
+persistentVolumeClaims:
+  enabled: true
+  items:
+    - name: local-file-server-pvc
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: manual
+      storage: 10Gi
+      mountPath: /web
+      volumeName: local-file-server-pv

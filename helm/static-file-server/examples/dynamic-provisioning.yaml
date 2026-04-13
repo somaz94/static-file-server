@@ -1,0 +1,27 @@
+# Example: Dynamic provisioning (StorageClass auto-creates PV)
+#
+# Usage:
+#   helm install my-server ./helm/static-file-server -f helm/static-file-server/examples/dynamic-provisioning.yaml
+#
+# Works with any CSI driver that supports dynamic provisioning:
+#   - AWS EBS (gp3, io2)
+#   - GCP PD (standard, ssd)
+#   - Azure Disk (managed-premium)
+#   - NFS subdir external provisioner (nfs-client)
+#   - Longhorn, Rook-Ceph, etc.
+
+replicaCount: 1
+
+config:
+  folder: /web
+  port: "8080"
+  cors: "false"
+  debug: "false"
+  allowIndex: "true"
+  showListing: "true"
+
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 10Gi
+  storageClass: "standard"  # <-- Replace with your StorageClass
