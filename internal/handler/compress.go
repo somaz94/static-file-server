@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -13,7 +14,7 @@ var skipCompressionExts = map[string]bool{
 	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
 	".mp4": true, ".avi": true, ".mov": true, ".mkv": true, ".webm": true,
 	".mp3": true, ".wav": true, ".flac": true, ".aac": true, ".ogg": true,
-	".zip": true, ".tar.gz": true, ".gz": true, ".bz2": true, ".xz": true,
+	".zip": true, ".gz": true, ".bz2": true, ".xz": true,
 	".rar": true, ".7z": true, ".tgz": true,
 	".apk": true, ".ipa": true,
 	".woff": true, ".woff2": true,
@@ -37,6 +38,14 @@ func (g *gzipResponseWriter) Write(b []byte) (int, error) {
 	return g.writer.Write(b)
 }
 
+// Flush implements http.Flusher by flushing the gzip writer and the underlying ResponseWriter.
+func (g *gzipResponseWriter) Flush() {
+	g.writer.Flush()
+	if f, ok := g.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
 // withCompression adds gzip compression for text-based responses.
 // It skips compression for Range requests and already-compressed file types.
 func withCompression(next http.Handler) http.Handler {
@@ -54,12 +63,10 @@ func withCompression(next http.Handler) http.Handler {
 		}
 
 		// Skip for already-compressed file extensions.
-		lower := strings.ToLower(r.URL.Path)
-		for ext := range skipCompressionExts {
-			if strings.HasSuffix(lower, ext) {
-				next.ServeHTTP(w, r)
-				return
-			}
+		ext := strings.ToLower(filepath.Ext(r.URL.Path))
+		if skipCompressionExts[ext] {
+			next.ServeHTTP(w, r)
+			return
 		}
 
 		gz := gzipPool.Get().(*gzip.Writer)
