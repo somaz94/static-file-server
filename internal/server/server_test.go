@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -65,6 +66,20 @@ func setupTestFolder(t *testing.T) string {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "test.txt"), []byte("hello server"), 0644)
 	return dir
+}
+
+// waitForServer polls the given URL until it responds or times out.
+func waitForServer(t *testing.T, client *http.Client, url string) {
+	t.Helper()
+	for i := 0; i < 50; i++ {
+		resp, err := client.Get(url)
+		if err == nil {
+			resp.Body.Close()
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("server at %s did not become ready", url)
 }
 
 func TestRunHTTP(t *testing.T) {
@@ -228,5 +243,74 @@ func TestRunTLS(t *testing.T) {
 	}
 	if string(body) != "hello server" {
 		t.Errorf("expected 'hello server', got %q", string(body))
+	}
+}
+
+func TestGracefulShutdown(t *testing.T) {
+	dir := setupTestFolder(t)
+	port := freePort(t)
+
+	cfg := config.Default()
+	cfg.Host = "127.0.0.1"
+	cfg.Port = port
+	cfg.Folder = dir
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- Run(cfg)
+	}()
+
+	addr := fmt.Sprintf("http://127.0.0.1:%d", port)
+	waitForServer(t, http.DefaultClient, addr+"/healthz")
+
+	// Send SIGINT to trigger graceful shutdown
+	syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Errorf("expected nil error from graceful shutdown, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("server did not shut down within 5 seconds")
+	}
+}
+
+func TestGracefulShutdownTLS(t *testing.T) {
+	dir := setupTestFolder(t)
+	port := freePort(t)
+	certPath, keyPath := generateSelfSignedCert(t)
+
+	cfg := config.Default()
+	cfg.Host = "127.0.0.1"
+	cfg.Port = port
+	cfg.Folder = dir
+	cfg.TLSCert = certPath
+	cfg.TLSKey = keyPath
+	cfg.TLSMinVers = "TLS12"
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- Run(cfg)
+	}()
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
+	addr := fmt.Sprintf("https://127.0.0.1:%d", port)
+	waitForServer(t, client, addr+"/healthz")
+
+	syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Errorf("expected nil error from graceful shutdown, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("TLS server did not shut down within 5 seconds")
 	}
 }
