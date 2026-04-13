@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased (2026-04-13)
 
+### Bug Fixes
+
+- **ci:** correct workflow_run trigger name in changelog-generator ([07c7aae](https://github.com/somaz94/static-file-server/commit/07c7aae7a9c96c0f3fcf2fd443931e09736640c3))
+
+### Contributors
+
+- somaz
+
+<br/>
+
+## [v0.2.0](https://github.com/somaz94/static-file-server/compare/v0.1.0...v0.2.0) (2026-04-13)
+
 ### Features
 
 - add customHeaders to Helm chart, use /healthz probes, update docs for new features ([b234967](https://github.com/somaz94/static-file-server/commit/b23496748f7d5deda8fc7bbee24c782c937f7206))
