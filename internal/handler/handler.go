@@ -344,15 +344,29 @@ func withPrefix(next http.Handler, prefix string) http.Handler {
 	})
 }
 
-// responseRecorder wraps http.ResponseWriter to capture the status code.
+// responseRecorder wraps http.ResponseWriter to capture the status code and bytes written.
 type responseRecorder struct {
 	http.ResponseWriter
 	status int
+	bytes  int64
 }
 
 func (rr *responseRecorder) WriteHeader(code int) {
 	rr.status = code
 	rr.ResponseWriter.WriteHeader(code)
+}
+
+func (rr *responseRecorder) Write(b []byte) (int, error) {
+	n, err := rr.ResponseWriter.Write(b)
+	rr.bytes += int64(n)
+	return n, err
+}
+
+// Flush implements http.Flusher by delegating to the underlying ResponseWriter.
+func (rr *responseRecorder) Flush() {
+	if f, ok := rr.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 // logEntry holds structured log data for JSON output.
