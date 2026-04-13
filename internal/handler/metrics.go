@@ -2,8 +2,10 @@ package handler
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,10 +13,12 @@ import (
 
 // metricsCollector tracks request metrics without external dependencies.
 type metricsCollector struct {
-	mu             sync.RWMutex
-	requestCounts  map[string]*atomic.Int64 // "method:status" -> count
+	mu                 sync.RWMutex
+	requestCounts      map[string]*atomic.Int64 // "method:status" -> count
 	responseBytesTotal atomic.Int64
 	durationBuckets    []*durationBucket
+	durationSum        atomic.Uint64 // float64 bits via math.Float64bits/Float64frombits
+	durationCount      atomic.Int64
 }
 
 type durationBucket struct {
@@ -30,7 +34,7 @@ func newMetricsCollector() *metricsCollector {
 		buckets[i] = &durationBucket{le: le}
 	}
 	return &metricsCollector{
-		requestCounts:  make(map[string]*atomic.Int64),
+		requestCounts:   make(map[string]*atomic.Int64),
 		durationBuckets: buckets,
 	}
 }
@@ -53,11 +57,22 @@ func (m *metricsCollector) record(method string, status int, duration time.Durat
 
 	counter.Add(1)
 	m.responseBytesTotal.Add(bytes)
+	m.durationCount.Add(1)
 
+	// Atomic float64 add via CAS loop.
 	secs := duration.Seconds()
+	for {
+		old := m.durationSum.Load()
+		new := math.Float64bits(math.Float64frombits(old) + secs)
+		if m.durationSum.CompareAndSwap(old, new) {
+			break
+		}
+	}
+
 	for _, b := range m.durationBuckets {
 		if secs <= b.le {
 			b.count.Add(1)
+			break
 		}
 	}
 }
@@ -81,19 +96,9 @@ func (m *metricsCollector) handler() http.HandlerFunc {
 			m.mu.RLock()
 			counter := m.requestCounts[key]
 			m.mu.RUnlock()
-			var method string
-			var status int
-			fmt.Sscanf(key, "%3s:%d", &method, &status)
-			// Parse properly for longer methods
-			for i, ch := range key {
-				if ch == ':' {
-					method = key[:i]
-					fmt.Sscanf(key[i+1:], "%d", &status)
-					break
-				}
-			}
-			fmt.Fprintf(w, "static_file_server_requests_total{method=%q,status=\"%d\"} %d\n",
-				method, status, counter.Load())
+			method, statusStr, _ := strings.Cut(key, ":")
+			fmt.Fprintf(w, "static_file_server_requests_total{method=%q,status=%q} %d\n",
+				method, statusStr, counter.Load())
 		}
 
 		// Response bytes
@@ -101,15 +106,20 @@ func (m *metricsCollector) handler() http.HandlerFunc {
 		fmt.Fprintln(w, "# TYPE static_file_server_response_bytes_total counter")
 		fmt.Fprintf(w, "static_file_server_response_bytes_total %d\n", m.responseBytesTotal.Load())
 
-		// Duration histogram
+		// Duration histogram (cumulative buckets per Prometheus convention)
 		fmt.Fprintln(w, "# HELP static_file_server_request_duration_seconds Request duration histogram.")
 		fmt.Fprintln(w, "# TYPE static_file_server_request_duration_seconds histogram")
+		var cumulative int64
 		for _, b := range m.durationBuckets {
+			cumulative += b.count.Load()
 			fmt.Fprintf(w, "static_file_server_request_duration_seconds_bucket{le=\"%.3f\"} %d\n",
-				b.le, b.count.Load())
+				b.le, cumulative)
 		}
-		fmt.Fprintf(w, "static_file_server_request_duration_seconds_bucket{le=\"+Inf\"} %d\n",
-			m.totalRequests())
+		total := m.durationCount.Load()
+		fmt.Fprintf(w, "static_file_server_request_duration_seconds_bucket{le=\"+Inf\"} %d\n", total)
+		fmt.Fprintf(w, "static_file_server_request_duration_seconds_sum %f\n",
+			math.Float64frombits(m.durationSum.Load()))
+		fmt.Fprintf(w, "static_file_server_request_duration_seconds_count %d\n", total)
 	}
 }
 
@@ -123,24 +133,6 @@ func (m *metricsCollector) totalRequests() int64 {
 	return total
 }
 
-// metricsResponseWriter captures status code and bytes written.
-type metricsResponseWriter struct {
-	http.ResponseWriter
-	status int
-	bytes  int64
-}
-
-func (m *metricsResponseWriter) WriteHeader(code int) {
-	m.status = code
-	m.ResponseWriter.WriteHeader(code)
-}
-
-func (m *metricsResponseWriter) Write(b []byte) (int, error) {
-	n, err := m.ResponseWriter.Write(b)
-	m.bytes += int64(n)
-	return n, err
-}
-
 // withMetrics wraps a handler to collect request metrics and serves /metrics.
 func withMetrics(next http.Handler) http.Handler {
 	collector := newMetricsCollector()
@@ -152,8 +144,8 @@ func withMetrics(next http.Handler) http.Handler {
 		}
 
 		start := time.Now()
-		mrw := &metricsResponseWriter{ResponseWriter: w, status: http.StatusOK}
-		next.ServeHTTP(mrw, r)
-		collector.record(r.Method, mrw.status, time.Since(start), mrw.bytes)
+		rec := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		collector.record(r.Method, rec.status, time.Since(start), rec.bytes)
 	})
 }

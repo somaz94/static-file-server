@@ -778,6 +778,15 @@ func TestWithMetrics(t *testing.T) {
 	if !strings.Contains(body, `status="200"`) {
 		t.Error("metrics should contain 200 status label")
 	}
+	if !strings.Contains(body, "static_file_server_request_duration_seconds_sum") {
+		t.Error("metrics should contain duration sum")
+	}
+	if !strings.Contains(body, "static_file_server_request_duration_seconds_count 3") {
+		t.Error("metrics should contain duration count of 3")
+	}
+	if !strings.Contains(body, `le="+Inf"`) {
+		t.Error("metrics should contain +Inf bucket")
+	}
 }
 
 func TestBuildWithMetrics(t *testing.T) {
@@ -864,4 +873,3 @@ func containsAll(s string, subs ...string) bool {
 	}
 	return true
 }
-
