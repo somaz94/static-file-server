@@ -1,4 +1,5 @@
-{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) -}}
+{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -14,12 +15,31 @@ spec:
   resources:
     requests:
       storage: {{ .Values.persistence.size }}
-  {{- if .Values.persistence.selector.volumeName }}
-  volumeName: {{ .Values.persistence.selector.volumeName }}
+{{- end }}
+{{- if .Values.persistentVolumeClaims.enabled }}
+{{- range .Values.persistentVolumeClaims.items }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- include "static-file-server.labels" $ | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .accessModes | nindent 4 }}
+  {{- if .storageClassName }}
+  storageClassName: {{ .storageClassName }}
   {{- end }}
-  {{- if .Values.persistence.selector.matchLabels }}
+  resources:
+    requests:
+      storage: {{ .storage }}
+  {{- if .volumeName }}
+  volumeName: {{ .volumeName }}
+  {{- end }}
+  {{- if .selector }}
   selector:
-    matchLabels:
-      {{- toYaml .Values.persistence.selector.matchLabels | nindent 6 }}
+    {{- toYaml .selector | nindent 4 }}
   {{- end }}
+{{- end }}
 {{- end }}

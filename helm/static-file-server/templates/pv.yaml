@@ -1,26 +1,53 @@
-{{- if .Values.persistentVolume.enabled -}}
+{{- if .Values.persistentVolumes.enabled }}
+{{- range .Values.persistentVolumes.items }}
+---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: {{ .Values.persistentVolume.name | default (printf "%s-pv" (include "static-file-server.fullname" .)) }}
+  name: {{ .name }}
   labels:
-    {{- include "static-file-server.labels" . | nindent 4 }}
+    {{- include "static-file-server.labels" $ | nindent 4 }}
 spec:
   capacity:
-    storage: {{ .Values.persistentVolume.storage }}
-  volumeMode: {{ .Values.persistentVolume.volumeMode }}
+    storage: {{ .storage }}
+  volumeMode: {{ .volumeMode | default "Filesystem" }}
   accessModes:
-    {{- toYaml .Values.persistentVolume.accessModes | nindent 4 }}
-  persistentVolumeReclaimPolicy: {{ .Values.persistentVolume.reclaimPolicy }}
-  {{- if .Values.persistentVolume.storageClass }}
-  storageClassName: {{ .Values.persistentVolume.storageClass }}
+    {{- toYaml .accessModes | nindent 4 }}
+  persistentVolumeReclaimPolicy: {{ .reclaimPolicy | default "Retain" }}
+  {{- if .storageClassName }}
+  storageClassName: {{ .storageClassName }}
   {{- end }}
-  {{- if .Values.persistentVolume.nfs.server }}
+  {{- if .nfs }}
   nfs:
-    server: {{ .Values.persistentVolume.nfs.server }}
-    path: {{ .Values.persistentVolume.nfs.path }}
-  {{- else if .Values.persistentVolume.hostPath.path }}
-  hostPath:
-    path: {{ .Values.persistentVolume.hostPath.path }}
+    server: {{ .nfs.server }}
+    path: {{ .nfs.path }}
   {{- end }}
+  {{- if .hostPath }}
+  hostPath:
+    path: {{ .hostPath.path }}
+    {{- if .hostPath.type }}
+    type: {{ .hostPath.type }}
+    {{- end }}
+  {{- end }}
+  {{- if .csi }}
+  csi:
+    driver: {{ .csi.driver }}
+    volumeHandle: {{ .csi.volumeHandle }}
+    {{- if .csi.fsType }}
+    fsType: {{ .csi.fsType }}
+    {{- end }}
+    {{- if .csi.volumeAttributes }}
+    volumeAttributes:
+      {{- toYaml .csi.volumeAttributes | nindent 6 }}
+    {{- end }}
+  {{- end }}
+  {{- if .cephfs }}
+  cephfs:
+    {{- toYaml .cephfs | nindent 4 }}
+  {{- end }}
+  {{- if .iscsi }}
+  iscsi:
+    {{- toYaml .iscsi | nindent 4 }}
+  {{- end }}
+{{- end }}
 {{- end }}

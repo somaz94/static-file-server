@@ -98,23 +98,39 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
+            {{- if .Values.persistentVolumeClaims.enabled }}
+            {{- range .Values.persistentVolumeClaims.items }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath | default "/web" }}
+              readOnly: {{ .readOnly | default true }}
+            {{- end }}
+            {{- else }}
             - name: web-content
               mountPath: {{ .Values.config.folder }}
               readOnly: true
+            {{- end }}
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
       volumes:
+        {{- if .Values.persistentVolumeClaims.enabled }}
+        {{- range .Values.persistentVolumeClaims.items }}
+        - name: {{ .name }}
+          persistentVolumeClaim:
+            claimName: {{ .name }}
+        {{- end }}
+        {{- else if .Values.persistence.enabled }}
         - name: web-content
-          {{- if .Values.persistence.enabled }}
           persistentVolumeClaim:
             claimName: {{ .Values.persistence.existingClaim | default (printf "%s-data" (include "static-file-server.fullname" .)) }}
-          {{- else if .Values.content.enabled }}
+        {{- else if .Values.content.enabled }}
+        - name: web-content
           configMap:
             name: {{ include "static-file-server.fullname" . }}-content
-          {{- else }}
+        {{- else }}
+        - name: web-content
           emptyDir: {}
-          {{- end }}
+        {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

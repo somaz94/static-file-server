@@ -1,0 +1,84 @@
+# Example: NFS-based static file server with ingress
+# Usage: helm install static-file-server ./helm/static-file-server -f helm/static-file-server/examples/nfs-test-values.yaml
+#
+# Replace the following before use:
+#   - NFS server IP and path
+#   - Ingress host domain
+#   - storageClassName to match your cluster
+
+replicaCount: 2
+
+revisionHistoryLimit: 1
+
+image:
+  repository: somaz940/static-file-server
+  pullPolicy: IfNotPresent
+  tag: "v0.1.0"
+
+podSecurityContext: {}
+
+securityContext: {}
+
+config:
+  folder: /web
+  port: "8080"
+  cors: "true"
+  debug: "true"
+  allowIndex: "true"
+  showListing: "true"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "false"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: test-file-server.example.com  # Replace with your domain
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+
+resources: {}
+
+probes:
+  liveness:
+    enabled: true
+    path: /
+    port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readiness:
+    enabled: true
+    path: /
+    port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+# Static PV (NFS)
+persistentVolume:
+  enabled: true
+  storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  reclaimPolicy: Retain
+  storageClass: "nfs-client-nopath"  # Replace with your storage class
+  nfs:
+    server: "10.10.10.5"             # Replace with your NFS server IP
+    path: "/volume1/nfs"             # Replace with your NFS path
+
+# PVC binding to static PV
+persistence:
+  enabled: true
+  accessMode: ReadWriteMany
+  size: 5Gi
+  storageClass: "nfs-client-nopath"  # Must match PV storageClass
+  selector:
+    volumeName: ""                   # Auto-set from PV name if empty

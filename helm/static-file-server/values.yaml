@@ -101,39 +101,68 @@ probes:
     initialDelaySeconds: 3
     periodSeconds: 5
 
-# Persistent volume for serving files (dynamic provisioning)
+# ---------------------------------------------------------------------------
+# Storage: 3 modes (choose one)
+# ---------------------------------------------------------------------------
+
+# Mode 1: Simple dynamic provisioning (single PVC)
 persistence:
   enabled: false
   accessMode: ReadOnlyMany
   size: 1Gi
   storageClass: ""
   existingClaim: ""
-  # Selector for binding to a specific PV (used with static provisioning)
-  selector: {}
-  # Example:
-  #   matchLabels:
-  #     app: static-file-server
-  #   volumeName: static-file-server-pv
 
-# Static PersistentVolume (for NFS, hostPath, etc.)
-persistentVolume:
+# Mode 2: Static provisioning with full control (multiple PVs + PVCs)
+# Each PVC item's mountPath is used in the Deployment volumeMounts.
+persistentVolumes:
   enabled: false
-  name: ""  # defaults to fullname-pv
-  storage: 1Gi
-  volumeMode: Filesystem
-  accessModes:
-    - ReadWriteMany
-  reclaimPolicy: Retain
-  storageClass: ""
-  # NFS
-  nfs:
-    server: ""
-    path: ""
-  # HostPath (for single-node testing)
-  hostPath:
-    path: ""
+  items: []
+  # Example (NFS):
+  #   - name: static-file-server-pv
+  #     storage: 5Gi
+  #     volumeMode: Filesystem
+  #     accessModes:
+  #       - ReadWriteMany
+  #     reclaimPolicy: Retain
+  #     storageClassName: nfs-client
+  #     nfs:
+  #       server: 10.10.10.5
+  #       path: /volume1/nfs
+  #
+  # Example (HostPath):
+  #   - name: local-pv
+  #     storage: 10Gi
+  #     accessModes:
+  #       - ReadWriteOnce
+  #     storageClassName: local-storage
+  #     hostPath:
+  #       path: /data/web
+  #       type: DirectoryOrCreate
+  #
+  # Example (CSI):
+  #   - name: csi-pv
+  #     storage: 20Gi
+  #     accessModes:
+  #       - ReadWriteOnce
+  #     storageClassName: ebs-sc
+  #     csi:
+  #       driver: ebs.csi.aws.com
+  #       volumeHandle: vol-0123456789abcdef
 
-# ConfigMap-based content (for small static sites)
+persistentVolumeClaims:
+  enabled: false
+  items: []
+  # Example:
+  #   - name: static-file-server-pvc
+  #     accessModes:
+  #       - ReadWriteMany
+  #     storageClassName: nfs-client
+  #     storage: 5Gi
+  #     mountPath: /web
+  #     volumeName: static-file-server-pv  # bind to specific PV (optional)
+
+# Mode 3: ConfigMap-based content (for small static sites)
 content:
   enabled: false
   files: {}

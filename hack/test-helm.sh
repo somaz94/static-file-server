@@ -35,38 +35,57 @@ helm template test-release "${CHART_DIR}" \
 echo "  [OK] Ingress values render successfully"
 echo ""
 
-# 4. Template render (with persistence)
-echo "--- Template (persistence enabled) ---"
+# 4. Template render (dynamic provisioning)
+echo "--- Template (dynamic provisioning) ---"
 helm template test-release "${CHART_DIR}" \
     --set persistence.enabled=true \
+    --set persistence.storageClass=standard \
     --set persistence.size=5Gi > /dev/null
-echo "  [OK] Persistence values render successfully"
+echo "  [OK] Dynamic provisioning render successfully"
 echo ""
 
-# 5. Template render (with configmap content)
+# 5. Template render (static provisioning - NFS PV + PVC items)
+echo "--- Template (static provisioning - NFS) ---"
+helm template test-release "${CHART_DIR}" \
+    --set persistentVolumes.enabled=true \
+    --set "persistentVolumes.items[0].name=test-pv" \
+    --set "persistentVolumes.items[0].storage=5Gi" \
+    --set "persistentVolumes.items[0].accessModes[0]=ReadWriteMany" \
+    --set "persistentVolumes.items[0].reclaimPolicy=Retain" \
+    --set "persistentVolumes.items[0].storageClassName=nfs-client" \
+    --set "persistentVolumes.items[0].nfs.server=10.0.0.1" \
+    --set "persistentVolumes.items[0].nfs.path=/exports/web" \
+    --set persistentVolumeClaims.enabled=true \
+    --set "persistentVolumeClaims.items[0].name=test-pvc" \
+    --set "persistentVolumeClaims.items[0].accessModes[0]=ReadWriteMany" \
+    --set "persistentVolumeClaims.items[0].storageClassName=nfs-client" \
+    --set "persistentVolumeClaims.items[0].storage=5Gi" \
+    --set "persistentVolumeClaims.items[0].mountPath=/web" \
+    --set "persistentVolumeClaims.items[0].volumeName=test-pv" > /dev/null
+echo "  [OK] Static provisioning NFS render successfully"
+echo ""
+
+# 6. Template render (static provisioning - hostPath)
+echo "--- Template (static provisioning - hostPath) ---"
+helm template test-release "${CHART_DIR}" \
+    --set persistentVolumes.enabled=true \
+    --set "persistentVolumes.items[0].name=local-pv" \
+    --set "persistentVolumes.items[0].storage=10Gi" \
+    --set "persistentVolumes.items[0].accessModes[0]=ReadWriteOnce" \
+    --set "persistentVolumes.items[0].hostPath.path=/data/web" \
+    --set "persistentVolumes.items[0].hostPath.type=DirectoryOrCreate" > /dev/null
+echo "  [OK] Static provisioning hostPath render successfully"
+echo ""
+
+# 7. Template render (configmap content)
 echo "--- Template (configmap content) ---"
 helm template test-release "${CHART_DIR}" \
     --set content.enabled=true \
     --set 'content.files.index\.html=<html>test</html>' > /dev/null
-echo "  [OK] ConfigMap content values render successfully"
+echo "  [OK] ConfigMap content render successfully"
 echo ""
 
-# 6. Template render (static PV + PVC with selector)
-echo "--- Template (static PV + NFS) ---"
-helm template test-release "${CHART_DIR}" \
-    --set persistentVolume.enabled=true \
-    --set persistentVolume.storage=5Gi \
-    --set persistentVolume.storageClass=nfs-client \
-    --set persistentVolume.nfs.server=10.0.0.1 \
-    --set persistentVolume.nfs.path=/exports/web \
-    --set persistence.enabled=true \
-    --set persistence.accessMode=ReadWriteMany \
-    --set persistence.size=5Gi \
-    --set persistence.storageClass=nfs-client > /dev/null
-echo "  [OK] Static PV + NFS values render successfully"
-echo ""
-
-# 7. Template render (all options)
+# 8. Template render (full options with extraVolumes)
 echo "--- Template (full options) ---"
 helm template test-release "${CHART_DIR}" \
     --set replicaCount=3 \
@@ -84,4 +103,11 @@ helm template test-release "${CHART_DIR}" \
 echo "  [OK] Full options render successfully"
 echo ""
 
-echo "==> All Helm chart tests passed!"
+# 9. Template render (NFS example file)
+echo "--- Template (NFS example values) ---"
+helm template test-release "${CHART_DIR}" \
+    -f "${CHART_DIR}/examples/nfs-example.yaml" > /dev/null
+echo "  [OK] NFS example values render successfully"
+echo ""
+
+echo "==> All Helm chart tests passed! (9/9)"

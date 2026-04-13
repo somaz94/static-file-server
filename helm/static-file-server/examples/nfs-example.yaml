@@ -1,16 +1,13 @@
-# Example: NFS-based static file server with ingress
+# Example: NFS static provisioning with ingress
 #
-# Copy this file and replace placeholder values:
+# Copy and edit:
 #   cp nfs-example.yaml nfs-test-values.yaml
-#   # Edit nfs-test-values.yaml with real values
 #   helm install static-file-server ./helm/static-file-server -f helm/static-file-server/examples/nfs-test-values.yaml
 
 replicaCount: 2
-
 revisionHistoryLimit: 1
 
 podSecurityContext: {}
-
 securityContext: {}
 
 config:
@@ -34,7 +31,7 @@ ingress:
     nginx.ingress.kubernetes.io/ssl-passthrough: "false"
     nginx.ingress.kubernetes.io/rewrite-target: /
   hosts:
-    - host: file-server.example.com    # <-- Replace with your domain
+    - host: file-server.example.com    # <-- Replace
       paths:
         - path: /
           pathType: ImplementationSpecific
@@ -56,21 +53,28 @@ probes:
     periodSeconds: 10
 
 # Static PV (NFS)
-persistentVolume:
+persistentVolumes:
   enabled: true
-  storage: 5Gi
-  volumeMode: Filesystem
-  accessModes:
-    - ReadWriteMany
-  reclaimPolicy: Retain
-  storageClass: "nfs-client"           # <-- Replace with your storage class
-  nfs:
-    server: "10.0.0.1"                 # <-- Replace with your NFS server IP
-    path: "/exports/web"               # <-- Replace with your NFS path
+  items:
+    - name: static-file-server-pv
+      storage: 5Gi
+      volumeMode: Filesystem
+      accessModes:
+        - ReadWriteMany
+      reclaimPolicy: Retain
+      storageClassName: nfs-client       # <-- Replace
+      nfs:
+        server: "10.0.0.1"              # <-- Replace
+        path: "/exports/web"             # <-- Replace
 
 # PVC binding to static PV
-persistence:
+persistentVolumeClaims:
   enabled: true
-  accessMode: ReadWriteMany
-  size: 5Gi
-  storageClass: "nfs-client"           # <-- Must match PV storageClass
+  items:
+    - name: static-file-server-pvc
+      accessModes:
+        - ReadWriteMany
+      storageClassName: nfs-client       # <-- Must match PV
+      storage: 5Gi
+      mountPath: /web
+      volumeName: static-file-server-pv  # <-- Must match PV name
