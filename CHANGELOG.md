@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 
 ### Code Refactoring
 
+- align workflows with k8s-namespace-sync pattern ([ae2327c](https://github.com/somaz94/static-file-server/commit/ae2327c11ba95bf2ec48acd807fcd55320c13af7))
 - extensible PV/PVC with items list, support dynamic and static provisioning ([3c123d0](https://github.com/somaz94/static-file-server/commit/3c123d0952c39e43ad019f6f6df16aaa3a7d1016))
 
 ### Documentation
@@ -33,6 +34,8 @@ All notable changes to this project will be documented in this file.
 
 ### Builds
 
+- **deps:** bump dependabot/fetch-metadata from 2 to 3 (#7) ([#7](https://github.com/somaz94/static-file-server/pull/7)) ([6507118](https://github.com/somaz94/static-file-server/commit/650711897012c776a6966225351b52063cf49b13))
+- **deps:** bump softprops/action-gh-release from 2 to 3 (#5) ([#5](https://github.com/somaz94/static-file-server/pull/5)) ([251c65f](https://github.com/somaz94/static-file-server/commit/251c65fbb5c9cb22fdcd65bddaa0f3977622177e))
 - **deps:** bump docker/setup-buildx-action from 3 to 4 ([18dcf44](https://github.com/somaz94/static-file-server/commit/18dcf447e0de095947d0251ac91e19a7db641ca6))
 - **deps:** bump golang from 1.24 to 1.26 in the docker-minor group (#2) ([#2](https://github.com/somaz94/static-file-server/pull/2)) ([558ee43](https://github.com/somaz94/static-file-server/commit/558ee434b593de84d3833856ed013da56874e177))
 - **deps:** bump github.com/spf13/cobra in the go-minor group (#1) ([#1](https://github.com/somaz94/static-file-server/pull/1)) ([a12230c](https://github.com/somaz94/static-file-server/commit/a12230c0e8eb798d3f482daa4bf42bf387271a5a))
