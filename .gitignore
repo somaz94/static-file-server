@@ -29,6 +29,10 @@ go.work.sum
 # Docker cross-build artifact
 Dockerfile.cross
 
+# Helm example values with real environment values
+helm/*/examples/*-values.yaml
+!helm/*/examples/*-example.yaml
+
 # OS files
 .DS_Store
 

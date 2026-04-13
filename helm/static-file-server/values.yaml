@@ -4,6 +4,8 @@ fullnameOverride: ""
 
 replicaCount: 1
 
+revisionHistoryLimit: 3
+
 image:
   repository: somaz940/static-file-server
   pullPolicy: IfNotPresent
@@ -99,13 +101,37 @@ probes:
     initialDelaySeconds: 3
     periodSeconds: 5
 
-# Persistent volume for serving files
+# Persistent volume for serving files (dynamic provisioning)
 persistence:
   enabled: false
   accessMode: ReadOnlyMany
   size: 1Gi
   storageClass: ""
   existingClaim: ""
+  # Selector for binding to a specific PV (used with static provisioning)
+  selector: {}
+  # Example:
+  #   matchLabels:
+  #     app: static-file-server
+  #   volumeName: static-file-server-pv
+
+# Static PersistentVolume (for NFS, hostPath, etc.)
+persistentVolume:
+  enabled: false
+  name: ""  # defaults to fullname-pv
+  storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  reclaimPolicy: Retain
+  storageClass: ""
+  # NFS
+  nfs:
+    server: ""
+    path: ""
+  # HostPath (for single-node testing)
+  hostPath:
+    path: ""
 
 # ConfigMap-based content (for small static sites)
 content:
@@ -114,8 +140,20 @@ content:
   # Example:
   #   index.html: |
   #     <html><body><h1>Hello!</h1></body></html>
-  #   style.css: |
-  #     body { margin: 0; }
+
+# Extra volumes to add to the deployment
+extraVolumes: []
+# Example:
+#   - name: extra-data
+#     configMap:
+#       name: my-configmap
+
+# Extra volume mounts to add to the container
+extraVolumeMounts: []
+# Example:
+#   - name: extra-data
+#     mountPath: /extra
+#     readOnly: true
 
 nodeSelector: {}
 tolerations: []

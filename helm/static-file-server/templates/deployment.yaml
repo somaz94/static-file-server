@@ -6,6 +6,7 @@ metadata:
     {{- include "static-file-server.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   selector:
     matchLabels:
       {{- include "static-file-server.selectorLabels" . | nindent 6 }}
@@ -100,6 +101,9 @@ spec:
             - name: web-content
               mountPath: {{ .Values.config.folder }}
               readOnly: true
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
       volumes:
         - name: web-content
           {{- if .Values.persistence.enabled }}
@@ -111,6 +115,9 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

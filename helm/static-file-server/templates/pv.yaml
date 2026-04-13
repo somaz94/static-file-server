@@ -1,0 +1,26 @@
+{{- if .Values.persistentVolume.enabled -}}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Values.persistentVolume.name | default (printf "%s-pv" (include "static-file-server.fullname" .)) }}
+  labels:
+    {{- include "static-file-server.labels" . | nindent 4 }}
+spec:
+  capacity:
+    storage: {{ .Values.persistentVolume.storage }}
+  volumeMode: {{ .Values.persistentVolume.volumeMode }}
+  accessModes:
+    {{- toYaml .Values.persistentVolume.accessModes | nindent 4 }}
+  persistentVolumeReclaimPolicy: {{ .Values.persistentVolume.reclaimPolicy }}
+  {{- if .Values.persistentVolume.storageClass }}
+  storageClassName: {{ .Values.persistentVolume.storageClass }}
+  {{- end }}
+  {{- if .Values.persistentVolume.nfs.server }}
+  nfs:
+    server: {{ .Values.persistentVolume.nfs.server }}
+    path: {{ .Values.persistentVolume.nfs.path }}
+  {{- else if .Values.persistentVolume.hostPath.path }}
+  hostPath:
+    path: {{ .Values.persistentVolume.hostPath.path }}
+  {{- end }}
+{{- end }}

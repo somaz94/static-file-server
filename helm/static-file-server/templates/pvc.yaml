@@ -14,4 +14,12 @@ spec:
   resources:
     requests:
       storage: {{ .Values.persistence.size }}
+  {{- if .Values.persistence.selector.volumeName }}
+  volumeName: {{ .Values.persistence.selector.volumeName }}
+  {{- end }}
+  {{- if .Values.persistence.selector.matchLabels }}
+  selector:
+    matchLabels:
+      {{- toYaml .Values.persistence.selector.matchLabels | nindent 6 }}
+  {{- end }}
 {{- end }}

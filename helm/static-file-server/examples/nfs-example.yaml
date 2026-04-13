@@ -1,0 +1,76 @@
+# Example: NFS-based static file server with ingress
+#
+# Copy this file and replace placeholder values:
+#   cp nfs-example.yaml nfs-test-values.yaml
+#   # Edit nfs-test-values.yaml with real values
+#   helm install static-file-server ./helm/static-file-server -f helm/static-file-server/examples/nfs-test-values.yaml
+
+replicaCount: 2
+
+revisionHistoryLimit: 1
+
+podSecurityContext: {}
+
+securityContext: {}
+
+config:
+  folder: /web
+  port: "8080"
+  cors: "true"
+  debug: "true"
+  allowIndex: "true"
+  showListing: "true"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "false"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: file-server.example.com    # <-- Replace with your domain
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+
+resources: {}
+
+probes:
+  liveness:
+    enabled: true
+    path: /
+    port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readiness:
+    enabled: true
+    path: /
+    port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+# Static PV (NFS)
+persistentVolume:
+  enabled: true
+  storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  reclaimPolicy: Retain
+  storageClass: "nfs-client"           # <-- Replace with your storage class
+  nfs:
+    server: "10.0.0.1"                 # <-- Replace with your NFS server IP
+    path: "/exports/web"               # <-- Replace with your NFS path
+
+# PVC binding to static PV
+persistence:
+  enabled: true
+  accessMode: ReadWriteMany
+  size: 5Gi
+  storageClass: "nfs-client"           # <-- Must match PV storageClass
