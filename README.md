@@ -9,6 +9,8 @@
 
 A lightweight, zero-dependency static file server written in Go with a modern directory listing UI.
 
+![Directory Listing UI](docs/images/directory-listing-dark.png)
+
 <br/>
 
 ## Features
