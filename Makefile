@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-IMG ?= somaz940/static-file-server:v0.1.0
+IMG ?= somaz940/static-file-server:v0.2.0
 APP_NAME := static-file-server
 MODULE := github.com/somaz94/static-file-server
 
