@@ -12,11 +12,13 @@ import (
 // skipCompressionExts contains file extensions that are already compressed.
 var skipCompressionExts = map[string]bool{
 	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
-	".mp4": true, ".avi": true, ".mov": true, ".mkv": true, ".webm": true,
-	".mp3": true, ".wav": true, ".flac": true, ".aac": true, ".ogg": true,
+	".mp4": true, ".avi": true, ".mov": true, ".mkv": true, ".webm": true, ".flv": true, ".wmv": true,
+	".mp3": true, ".wav": true, ".flac": true, ".aac": true, ".ogg": true, ".wma": true, ".m4a": true,
 	".zip": true, ".gz": true, ".bz2": true, ".xz": true,
 	".rar": true, ".7z": true, ".tgz": true,
-	".apk": true, ".ipa": true,
+	".br": true, ".zst": true, ".lz4": true, ".lzma": true,
+	".apk": true, ".ipa": true, ".aab": true, ".dmg": true, ".msi": true,
+	".ico": true, ".tiff": true,
 	".woff": true, ".woff2": true,
 	".pdf": true,
 	".exe": true, ".bin": true, ".dll": true, ".so": true, ".dylib": true, ".wasm": true,
