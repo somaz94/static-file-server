@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased (2026-04-13)
+
+### Features
+
+- add customHeaders to Helm chart, use /healthz probes, update docs for new features ([b234967](https://github.com/somaz94/static-file-server/commit/b23496748f7d5deda8fc7bbee24c782c937f7206))
+- add helmfile examples and include all deploy files in version bump ([73e8cb1](https://github.com/somaz94/static-file-server/commit/73e8cb1b6e112693325711f7ad2d85f648e1161d))
+- add /healthz endpoint, file stats in footer, custom response headers ([206bd32](https://github.com/somaz94/static-file-server/commit/206bd32824a26202809dfdeca38c8eb7c597f91d))
+- add dark/light mode toggle and show version in footer ([29a8da3](https://github.com/somaz94/static-file-server/commit/29a8da3cf8b247603ca74684d22002ba11d7bb61))
+
+### Builds
+
+- **deps:** bump docker/build-push-action from 6 to 7 (#8) ([#8](https://github.com/somaz94/static-file-server/pull/8)) ([668efd0](https://github.com/somaz94/static-file-server/commit/668efd0e4b25acc622ea98a7c142320ef4769d72))
+
+### Continuous Integration
+
+- add Docker build and push job to release workflow ([a96da54](https://github.com/somaz94/static-file-server/commit/a96da542c998062c4260705182a4b9e03b111d89))
+
+### Chores
+
+- bump version to v0.2.0 ([b128630](https://github.com/somaz94/static-file-server/commit/b128630b5d5a23a607478209904f774221150f63))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.1.0](https://github.com/somaz94/static-file-server/releases/tag/v0.1.0) (2026-04-13)
 
 ### Features
