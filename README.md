@@ -83,7 +83,7 @@ docker run -d \
   --name static-file-server \
   -p 8080:8080 \
   -v /path/to/files:/web:ro \
-  somaz940/static-file-server:v0.2.0
+  somaz940/static-file-server:v0.3.0
 ```
 
 <br/>
@@ -210,7 +210,7 @@ For full deployment instructions, see [Deployment Guide](docs/deployment.md).
 
 ```bash
 make version                      # Show version across all files
-make bump-version VERSION=v0.2.0  # Bump version in all files at once
+make bump-version VERSION=v0.3.0  # Bump version in all files at once
 ```
 
 See [Version Guide](docs/version.md) for the release process.
