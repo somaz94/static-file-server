@@ -107,6 +107,76 @@ See `.github/workflows/test.yml` for details.
 
 <br/>
 
+## Deployment Smoke Tests
+
+After deploying to a live environment, verify the server is working correctly with these manual checks.
+
+<br/>
+
+### Health Check
+
+```bash
+# Verify the server is responding
+curl -sI http://<YOUR_HOST>/
+# Expected: HTTP/1.1 200 OK
+```
+
+<br/>
+
+### CORS Verification
+
+```bash
+# Check CORS headers are present
+curl -sI http://<YOUR_HOST>/ | grep -i "access-control"
+# Expected:
+#   Access-Control-Allow-Headers: *
+#   Access-Control-Allow-Origin: *
+#   Cross-Origin-Resource-Policy: cross-origin
+
+# Test CORS preflight (OPTIONS request)
+curl -sI -X OPTIONS \
+  -H "Origin: http://example.com" \
+  -H "Access-Control-Request-Method: GET" \
+  http://<YOUR_HOST>/
+# Expected: HTTP/1.1 200 OK with CORS headers
+```
+
+<br/>
+
+### File Download Verification
+
+```bash
+# Verify directory listing returns HTML with file entries
+curl -s http://<YOUR_HOST>/path/to/files/ | grep -o '<a href="[^"]*">'
+# Expected: list of file links
+
+# Verify file download with correct Content-Type (e.g. APK)
+curl -sI http://<YOUR_HOST>/path/to/files/example.apk
+# Expected:
+#   HTTP/1.1 200 OK
+#   Content-Type: application/vnd.android.package-archive
+#   Content-Length: <file size in bytes>
+#   Accept-Ranges: bytes
+
+# Verify partial download support (Range header)
+curl -sI -H "Range: bytes=0-1023" http://<YOUR_HOST>/path/to/files/example.apk
+# Expected: HTTP/1.1 206 Partial Content
+```
+
+<br/>
+
+### Checklist
+
+| Check | Command | Expected |
+|-------|---------|----------|
+| Server responds | `curl -sI <host>/` | `200 OK` |
+| CORS headers | `curl -sI <host>/ \| grep Access-Control` | `Allow-Origin: *` |
+| Directory listing | `curl -s <host>/path/` | HTML with file links |
+| File Content-Type | `curl -sI <host>/file.apk` | `application/vnd.android.package-archive` |
+| Range support | `curl -sI -H "Range: bytes=0-1023" <host>/file` | `206 Partial Content` |
+
+<br/>
+
 ## Running Specific Tests
 
 ```bash

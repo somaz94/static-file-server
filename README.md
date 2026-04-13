@@ -282,7 +282,7 @@ Applied outer to inner:
 |----------|-------------|
 | [Configuration Guide](docs/configuration.md) | Environment variables, YAML config, serving modes, access control |
 | [Deployment Guide](docs/deployment.md) | Binary, Docker, Kubernetes, Helm (with storage examples) |
-| [Testing Guide](docs/test.md) | Unit tests, integration tests, Helm tests, coverage |
+| [Testing Guide](docs/test.md) | Unit tests, integration tests, Helm tests, deployment smoke tests, coverage |
 | [Version Guide](docs/version.md) | Version management, bump process, release workflow |
 
 <br/>
