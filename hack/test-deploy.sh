@@ -26,7 +26,7 @@ check() {
 }
 
 body_contains() {
-    echo "$BODY" | grep -q "$1" && echo "true" || echo "false"
+    grep -q "$1" <<< "$BODY" && echo "true" || echo "false"
 }
 
 echo "=== Smoke Test: ${BASE} ==="
