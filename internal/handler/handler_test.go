@@ -291,6 +291,151 @@ func TestBuild(t *testing.T) {
 	}
 }
 
+func TestWithLogging(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	h := withLogging(inner)
+
+	req := httptest.NewRequest("GET", "/test-path", nil)
+	req.Header.Set("Referer", "https://example.com")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestBuildAllCombinations(t *testing.T) {
+	dir := setupTestDir(t)
+
+	// Test with all middleware enabled
+	cfg := config.Default()
+	cfg.Folder = dir
+	cfg.CORS = true
+	cfg.Debug = true
+	cfg.URLPrefix = "/pfx"
+	cfg.AccessKey = "key123"
+	cfg.Referrers = []string{"https://example.com", ""}
+
+	h := Build(cfg)
+
+	// Valid request with all middleware
+	req := httptest.NewRequest("GET", "/pfx/hello.txt?key=key123", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 with all middleware, got %d", w.Code)
+	}
+	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Error("expected CORS headers")
+	}
+}
+
+func TestBuildListingOnly(t *testing.T) {
+	dir := setupTestDir(t)
+	cfg := config.Default()
+	cfg.Folder = dir
+	cfg.ShowListing = true
+	cfg.AllowIndex = false
+
+	h := Build(cfg)
+
+	// Directory should show listing, not index.html
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), `id="listing"`) {
+		t.Error("expected listing HTML")
+	}
+}
+
+func TestBuildIndexOnly(t *testing.T) {
+	dir := setupTestDir(t)
+	cfg := config.Default()
+	cfg.Folder = dir
+	cfg.ShowListing = false
+	cfg.AllowIndex = true
+
+	h := Build(cfg)
+
+	// Root with index.html should serve it
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	if w.Body.String() != "<html>index</html>" {
+		t.Errorf("expected index content, got %q", w.Body.String())
+	}
+}
+
+func TestBuildBasicOnly(t *testing.T) {
+	dir := setupTestDir(t)
+	cfg := config.Default()
+	cfg.Folder = dir
+	cfg.ShowListing = false
+	cfg.AllowIndex = false
+
+	h := Build(cfg)
+
+	// File should work
+	req := httptest.NewRequest("GET", "/hello.txt", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for file, got %d", w.Code)
+	}
+
+	// Directory should 404
+	req = httptest.NewRequest("GET", "/", nil)
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for directory, got %d", w.Code)
+	}
+}
+
+func TestListingHandlerServeFile(t *testing.T) {
+	dir := setupTestDir(t)
+	h := listing(dir)
+
+	// File request
+	req := httptest.NewRequest("GET", "/hello.txt", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for file, got %d", w.Code)
+	}
+	if w.Body.String() != "hello world" {
+		t.Errorf("expected body 'hello world', got %q", w.Body.String())
+	}
+}
+
+func TestListingHandlerNotFound(t *testing.T) {
+	dir := setupTestDir(t)
+	h := listing(dir)
+
+	req := httptest.NewRequest("GET", "/no-such-file.txt", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
 func TestSafePath(t *testing.T) {
 	dir := t.TempDir()
 

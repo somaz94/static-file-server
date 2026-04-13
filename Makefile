@@ -12,14 +12,23 @@ LDFLAGS := -ldflags "\
 	-s -w"
 
 # Docker
-IMG ?= $(APP_NAME):$(VERSION)
-DOCKER_REGISTRY ?= ghcr.io/somaz94
+IMG ?= somaz940/$(APP_NAME):$(VERSION)
+CONTAINER_TOOL ?= docker
+
+DOCKER_BUILD_ARGS = \
+	--build-arg VERSION=$(VERSION) \
+	--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+	--build-arg BUILD_DATE=$(BUILD_DATE)
 
 # Platforms for cross-compilation
-PLATFORMS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
+PLATFORMS ?= linux/amd64,linux/arm64
 
 # Tools
 GOLANGCI_LINT_VERSION ?= v2.1.6
+
+# Setting SHELL to bash allows bash commands to be executed by recipes.
+SHELL = /usr/bin/env bash -o pipefail
+.SHELLFLAGS = -ec
 
 .PHONY: help build test test-unit test-integration cover clean install fmt vet run \
 	lint lint-fix version \
@@ -79,9 +88,9 @@ cover: ## Generate HTML coverage report
 install: build ## Install binary to /usr/local/bin
 	cp bin/$(APP_NAME) /usr/local/bin/$(APP_NAME)
 
-cross-build: ## Build for all platforms (output: dist/)
+cross-build: ## Build for multiple OS/arch (output: dist/)
 	@mkdir -p dist
-	@for platform in $(PLATFORMS); do \
+	@for platform in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do \
 		os=$${platform%%/*}; \
 		arch=$${platform##*/}; \
 		output=dist/$(APP_NAME)-$${os}-$${arch}; \
@@ -93,30 +102,36 @@ cross-build: ## Build for all platforms (output: dist/)
 
 ##@ Docker
 
-docker-build: ## Build Docker image
-	docker build -t $(IMG) .
+docker-build: ## Build docker image
+	$(CONTAINER_TOOL) build $(DOCKER_BUILD_ARGS) -t ${IMG} .
 
-docker-push: ## Push Docker image
-	docker push $(DOCKER_REGISTRY)/$(IMG)
+docker-push: ## Push docker image
+	$(CONTAINER_TOOL) push ${IMG}
 
-docker-buildx: ## Build and push multi-arch Docker image (versioned + latest)
-	docker buildx build \
-		--platform linux/amd64,linux/arm64 \
-		-t $(DOCKER_REGISTRY)/$(APP_NAME):$(VERSION) \
-		-t $(DOCKER_REGISTRY)/$(APP_NAME):latest \
-		--push .
+docker-buildx-tag: ## Build and push multi-arch image with version tag
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
+	- $(CONTAINER_TOOL) buildx create --name $(APP_NAME)-builder
+	$(CONTAINER_TOOL) buildx use $(APP_NAME)-builder
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) \
+		$(DOCKER_BUILD_ARGS) \
+		--tag ${IMG} \
+		-f Dockerfile.cross .
+	- $(CONTAINER_TOOL) buildx rm $(APP_NAME)-builder
+	rm Dockerfile.cross
 
-docker-buildx-tag: ## Build and push multi-arch Docker image (versioned tag only)
-	docker buildx build \
-		--platform linux/amd64,linux/arm64 \
-		-t $(DOCKER_REGISTRY)/$(APP_NAME):$(VERSION) \
-		--push .
+docker-buildx-latest: ## Build and push multi-arch image with latest tag
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
+	- $(CONTAINER_TOOL) buildx create --name $(APP_NAME)-builder
+	$(CONTAINER_TOOL) buildx use $(APP_NAME)-builder
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) \
+		$(DOCKER_BUILD_ARGS) \
+		--tag $(shell echo ${IMG} | cut -f1 -d:):latest \
+		-f Dockerfile.cross .
+	- $(CONTAINER_TOOL) buildx rm $(APP_NAME)-builder
+	rm Dockerfile.cross
 
-docker-buildx-latest: ## Build and push multi-arch Docker image (latest tag only)
-	docker buildx build \
-		--platform linux/amd64,linux/arm64 \
-		-t $(DOCKER_REGISTRY)/$(APP_NAME):latest \
-		--push .
+docker-buildx: ## Build and push both version and latest tags
+docker-buildx: docker-buildx-tag docker-buildx-latest
 
 ##@ Cleanup
 

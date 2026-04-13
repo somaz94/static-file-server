@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -261,5 +262,155 @@ func TestListenAddr(t *testing.T) {
 	cfg.Port = 3000
 	if addr := cfg.ListenAddr(); addr != "localhost:3000" {
 		t.Errorf("expected localhost:3000, got %s", addr)
+	}
+}
+
+func TestSummary(t *testing.T) {
+	cfg := Default()
+	s := cfg.Summary()
+
+	expected := []string{
+		"Configuration:",
+		"CORS:         false",
+		"Debug:        false",
+		`Host:         ""`,
+		"Port:         8080",
+		"Folder:       /web",
+		"AllowIndex:   true",
+		"ShowListing:  true",
+		`URLPrefix:    ""`,
+		"TLS:          false",
+		"AccessKey:    false",
+	}
+	for _, e := range expected {
+		if !strings.Contains(s, e) {
+			t.Errorf("Summary missing %q", e)
+		}
+	}
+}
+
+func TestSummaryWithValues(t *testing.T) {
+	cfg := Default()
+	cfg.CORS = true
+	cfg.Debug = true
+	cfg.Host = "localhost"
+	cfg.TLSCert = "/cert.pem"
+	cfg.TLSKey = "/key.pem"
+	cfg.AccessKey = "secret"
+	cfg.Referrers = []string{"https://a.com", "https://b.com"}
+
+	s := cfg.Summary()
+
+	if !strings.Contains(s, "CORS:         true") {
+		t.Error("Summary should show CORS true")
+	}
+	if !strings.Contains(s, "TLS:          true") {
+		t.Error("Summary should show TLS true")
+	}
+	if !strings.Contains(s, "AccessKey:    true") {
+		t.Error("Summary should show AccessKey true")
+	}
+	if !strings.Contains(s, "https://a.com") {
+		t.Error("Summary should show referrers")
+	}
+}
+
+func TestLoadEnvAllVariables(t *testing.T) {
+	t.Setenv("CORS", "true")
+	t.Setenv("DEBUG", "true")
+	t.Setenv("HOST", "myhost")
+	t.Setenv("PORT", "9090")
+	t.Setenv("FOLDER", "/data")
+	t.Setenv("ALLOW_INDEX", "false")
+	t.Setenv("SHOW_LISTING", "false")
+	t.Setenv("URL_PREFIX", "/api")
+	t.Setenv("TLS_CERT", "/cert.pem")
+	t.Setenv("TLS_KEY", "/key.pem")
+	t.Setenv("TLS_MIN_VERS", "TLS12")
+	t.Setenv("REFERRERS", "https://a.com,https://b.com")
+	t.Setenv("ACCESS_KEY", "mykey")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if !cfg.CORS {
+		t.Error("expected CORS true")
+	}
+	if !cfg.Debug {
+		t.Error("expected Debug true")
+	}
+	if cfg.Host != "myhost" {
+		t.Errorf("expected host myhost, got %s", cfg.Host)
+	}
+	if cfg.Port != 9090 {
+		t.Errorf("expected port 9090, got %d", cfg.Port)
+	}
+	if cfg.Folder != "/data" {
+		t.Errorf("expected folder /data, got %s", cfg.Folder)
+	}
+	if cfg.AllowIndex {
+		t.Error("expected AllowIndex false")
+	}
+	if cfg.ShowListing {
+		t.Error("expected ShowListing false")
+	}
+	if cfg.URLPrefix != "/api" {
+		t.Errorf("expected URLPrefix /api, got %s", cfg.URLPrefix)
+	}
+	if cfg.TLSCert != "/cert.pem" {
+		t.Errorf("expected TLSCert /cert.pem, got %s", cfg.TLSCert)
+	}
+	if cfg.TLSKey != "/key.pem" {
+		t.Errorf("expected TLSKey /key.pem, got %s", cfg.TLSKey)
+	}
+	if cfg.TLSMinVers != "TLS12" {
+		t.Errorf("expected TLSMinVers TLS12, got %s", cfg.TLSMinVers)
+	}
+	if len(cfg.Referrers) != 2 || cfg.Referrers[0] != "https://a.com" {
+		t.Errorf("expected referrers [https://a.com https://b.com], got %v", cfg.Referrers)
+	}
+	if cfg.AccessKey != "mykey" {
+		t.Errorf("expected AccessKey mykey, got %s", cfg.AccessKey)
+	}
+}
+
+func TestLoadEnvUint16Invalid(t *testing.T) {
+	t.Setenv("PORT", "not-a-number")
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	// Invalid PORT should be ignored, keeping default
+	if cfg.Port != 8080 {
+		t.Errorf("expected default port 8080 for invalid PORT, got %d", cfg.Port)
+	}
+}
+
+func TestLoadEnvUint16Overflow(t *testing.T) {
+	t.Setenv("PORT", "99999")
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	// Overflow should be ignored, keeping default
+	if cfg.Port != 8080 {
+		t.Errorf("expected default port 8080 for overflow PORT, got %d", cfg.Port)
+	}
+}
+
+func TestLoadYAMLNotFound(t *testing.T) {
+	_, err := Load("/nonexistent/config.yaml")
+	if err == nil {
+		t.Error("expected error for nonexistent YAML file")
+	}
+}
+
+func TestValidation_PortZero(t *testing.T) {
+	cfg := Default()
+	cfg.Port = 0
+	if err := cfg.validate(); err == nil {
+		t.Error("expected validation error for port 0")
 	}
 }
