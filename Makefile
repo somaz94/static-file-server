@@ -212,7 +212,11 @@ pr: check-gh ## Run tests, push, and create PR (usage: make pr title="Add featur
 ##@ Deploy
 
 .PHONY: deploy
-deploy: ## Deploy as Docker container (local). Use 'make docker-build deploy' to rebuild first
+deploy: ## Deploy as Docker container (local)
+	@if ! $(CONTAINER_TOOL) image inspect ${IMG} >/dev/null 2>&1; then \
+		echo "\033[33m⚠ Image ${IMG} not found. Run 'make docker-build' first.\033[0m"; \
+		exit 1; \
+	fi
 	@mkdir -p $(DEPLOY_VOLUME)
 	@echo "Stopping existing container (if any)..."
 	-@$(CONTAINER_TOOL) rm -f $(DEPLOY_NAME) 2>/dev/null
@@ -230,20 +234,12 @@ undeploy: ## Stop and remove Docker container
 	-$(CONTAINER_TOOL) rm -f $(DEPLOY_NAME) 2>/dev/null
 	@echo "Container $(DEPLOY_NAME) removed."
 
-.PHONY: test-deploy
-test-deploy: ## Smoke test against running container
-	@echo "Testing http://localhost:$(DEPLOY_PORT) ..."
-	@for i in 1 2 3 4 5; do \
-		STATUS=$$(curl -s -o /dev/null -w '%{http_code}' http://localhost:$(DEPLOY_PORT)/ 2>/dev/null) && \
-		if [ "$$STATUS" = "200" ]; then \
-			echo "OK: HTTP $$STATUS"; \
-			exit 0; \
-		fi; \
-		echo "Waiting... (attempt $$i)"; \
-		sleep 1; \
-	done; \
-	echo "FAIL: Server not responding"; \
-	exit 1
+.PHONY: deploy-smoke
+deploy-smoke: ## Smoke test against running container (40+ checks)
+	@bash hack/test-deploy.sh $(DEPLOY_PORT)
+
+.PHONY: deploy-all
+deploy-all: deploy deploy-smoke ## Deploy + smoke test (all-in-one)
 
 .PHONY: deploy-k8s
 deploy-k8s: ## Deploy to Kubernetes cluster

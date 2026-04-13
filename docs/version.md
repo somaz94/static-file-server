@@ -8,13 +8,13 @@ Version is tracked in the following files:
 
 | File | Field | Format |
 |------|-------|--------|
-| `Makefile` | `IMG` | `somaz940/static-file-server:v0.1.0` |
-| `helm/static-file-server/Chart.yaml` | `version` | `0.1.0` (without `v`) |
-| `helm/static-file-server/Chart.yaml` | `appVersion` | `v0.1.0` |
-| `helm/static-file-server/values.yaml` | `image.tag` | `v0.1.0` |
-| `deploy/deployment.yaml` | `image` | `somaz940/static-file-server:v0.1.0` |
-| `deploy/helmfile/helmfile.yaml` | `version` | `0.1.0` (without `v`) |
-| `deploy/helmfile/values/mgmt.yaml` | `image.tag` | `v0.1.0` |
+| `Makefile` | `IMG` | `somaz940/static-file-server:v0.4.0` |
+| `helm/static-file-server/Chart.yaml` | `version` | `0.4.0` (without `v`) |
+| `helm/static-file-server/Chart.yaml` | `appVersion` | `v0.4.0` |
+| `helm/static-file-server/values.yaml` | `image.tag` | `v0.4.0` |
+| `deploy/deployment.yaml` | `image` | `somaz940/static-file-server:v0.4.0` |
+| `deploy/helmfile/helmfile.yaml` | `version` | `0.4.0` (without `v`) |
+| `deploy/helmfile/values/mgmt.yaml` | `image.tag` | `v0.4.0` |
 
 <br/>
 
@@ -26,16 +26,16 @@ make version
 
 Output:
 ```
-Current version: v0.1.0
+Current version: v0.4.0
 
 Version in each file:
-  Makefile:                           v0.1.0
-  Chart.yaml (version):               0.1.0
-  Chart.yaml (appVersion):            v0.1.0
-  values.yaml (image.tag):            v0.1.0
-  deployment.yaml (image):            v0.1.0
-  helmfile.yaml (version):            0.1.0
-  helmfile mgmt.yaml (image.tag):     v0.1.0
+  Makefile:                           v0.4.0
+  Chart.yaml (version):               0.4.0
+  Chart.yaml (appVersion):            v0.4.0
+  values.yaml (image.tag):            v0.4.0
+  deployment.yaml (image):            v0.4.0
+  helmfile.yaml (version):            0.4.0
+  helmfile mgmt.yaml (image.tag):     v0.4.0
 ```
 
 <br/>
@@ -45,7 +45,7 @@ Version in each file:
 Update all files at once:
 
 ```bash
-make bump-version VERSION=v0.2.0
+make bump-version VERSION=v0.4.0
 ```
 
 This updates:
@@ -64,9 +64,9 @@ This updates:
 ### 1. Bump version and commit
 
 ```bash
-make bump-version VERSION=v0.2.0
+make bump-version VERSION=v0.4.0
 git diff                                    # review changes
-git commit -am "chore: bump version to v0.2.0"
+git commit -am "chore: bump version to v0.4.0"
 git push origin main
 ```
 
@@ -79,8 +79,8 @@ make docker-buildx                          # builds + pushes versioned + latest
 ### 3. Create git tag
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.4.0
+git push origin v0.4.0
 ```
 
 This triggers the following CI workflows:
@@ -91,7 +91,7 @@ This triggers the following CI workflows:
 
 ```bash
 # Docker image
-docker pull somaz940/static-file-server:v0.2.0
+docker pull somaz940/static-file-server:v0.4.0
 
 # Helm chart
 helm repo update

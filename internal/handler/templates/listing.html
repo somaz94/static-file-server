@@ -630,7 +630,14 @@
             if(p)tbody.appendChild(p);
             rows.forEach(function(r){tbody.appendChild(r)});
         };
-        loadSortPref();if(col>=0){window.sortTable(col);if(!asc)window.sortTable(col);}// restore sort + direction
+        // Restore saved sort: reset state first so sortTable treats it as new column
+        (function(){
+            var s; try{s=JSON.parse(localStorage.getItem('sfs-sort'));}catch(e){}
+            if(!s||s.col<0)return;
+            col=-1;asc=true;
+            window.sortTable(s.col); // ascending first
+            if(!s.asc)window.sortTable(s.col); // flip to descending if needed
+        })();
 
         /* ===== Relative time ===== */
         function relativeTime(unix){
@@ -650,9 +657,12 @@
         });
 
         /* ===== Filter chip counts ===== */
-        function updateChipCounts(){
+        function updateChipCounts(q){
+            q=q||'';
             var counts={all:0};
             document.querySelectorAll('#listing tbody tr:not(.parent)').forEach(function(r){
+                var name=r.getAttribute('data-name')||'';
+                if(q&&name.toLowerCase().indexOf(q)===-1)return; // skip search-filtered
                 var t=r.getAttribute('data-type')||'file';
                 counts[t]=(counts[t]||0)+1;counts.all++;
             });
@@ -711,6 +721,7 @@
             else{searchCount.style.display='none';}
             if(shown===0&&(q||activeFilter!=='all')){emptyState.style.display='block';emptyQuery.textContent=q||activeFilter;}
             else{emptyState.style.display='none';}
+            updateChipCounts(q);
             if(isGridView)buildGrid();
         }
 
@@ -741,6 +752,11 @@
         /* ===== Keyboard shortcuts ===== */
         var kbRow=-1;
         function getVisibleRows(){
+            if(isGridView){
+                var cards=document.querySelectorAll('.grid-card'),vis=[];
+                for(var i=0;i<cards.length;i++)vis.push(cards[i]);
+                return vis;
+            }
             var all=document.querySelectorAll('#listing tbody tr'),vis=[];
             for(var i=0;i<all.length;i++){if(all[i].style.display!=='none')vis.push(all[i]);}
             return vis;
@@ -786,9 +802,11 @@
                 e.preventDefault();kbRow=Math.max(kbRow-1,0);
                 clearKbFocus();rows[kbRow].classList.add('kb-focus');rows[kbRow].scrollIntoView({block:'nearest'});
             }else if(e.key==='Enter'&&kbRow>=0&&kbRow<rows.length){
-                var link=rows[kbRow].querySelector('a');if(link)link.click();
+                var link=rows[kbRow].querySelector('a')||rows[kbRow].querySelector('.grid-name');
+                if(link)link.click();
             }else if(e.key===' '&&kbRow>=0&&kbRow<rows.length){
-                e.preventDefault();var cb=rows[kbRow].querySelector('.row-checkbox');
+                e.preventDefault();
+                var cb=rows[kbRow].querySelector('.row-checkbox')||rows[kbRow].querySelector('.grid-checkbox');
                 if(cb){cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'));}
             }
         });
@@ -842,12 +860,21 @@
                 var f=cb.getAttribute('data-file');if(f&&!cb.getAttribute('data-isdir'))files.push(f);
             });
             if(!files.length)return;
+            var dlBtn=document.querySelector('.selection-bar button');
+            dlBtn.disabled=true;dlBtn.textContent='Downloading...';
             fetch(window.location.pathname+'?batch=zip',{
                 method:'POST',headers:{'Content-Type':'application/json'},
                 body:JSON.stringify({files:files})
-            }).then(function(r){return r.blob()}).then(function(blob){
+            }).then(function(r){
+                if(!r.ok)throw new Error('Server returned '+r.status);
+                return r.blob();
+            }).then(function(blob){
                 var a=document.createElement('a');a.href=URL.createObjectURL(blob);
                 a.download='download.zip';a.click();URL.revokeObjectURL(a.href);
+            }).catch(function(err){
+                alert('Download failed: '+err.message);
+            }).finally(function(){
+                dlBtn.disabled=false;dlBtn.innerHTML='<svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg> Download .zip';
             });
         };
 
@@ -880,10 +907,15 @@
                     type=r.getAttribute('data-type'),iconEl=r.querySelector('.icon'),
                     previewLink=r.querySelector('[data-preview]'),
                     previewType=previewLink?previewLink.getAttribute('data-preview'):null;
+                // Sync checked state from table row
+                var tableCheckbox=r.querySelector('.row-checkbox');
+                var isChecked=tableCheckbox&&tableCheckbox.checked;
                 var card=document.createElement('div');card.className='grid-card';
+                if(isChecked)card.classList.add('selected');
                 card.setAttribute('data-name',name);card.setAttribute('data-href',href);
                 // Checkbox
                 var cb=document.createElement('input');cb.type='checkbox';cb.className='grid-checkbox';
+                cb.checked=isChecked;
                 cb.setAttribute('data-file',name);
                 if(type==='dir')cb.setAttribute('data-isdir','1');
                 card.appendChild(cb);
@@ -911,7 +943,12 @@
                     a.click();
                 });
                 cb.addEventListener('change',function(){
-                    card.classList.toggle('selected',cb.checked);updateSelBar();
+                    card.classList.toggle('selected',cb.checked);
+                    // Sync back to table row checkbox
+                    if(tableCheckbox)tableCheckbox.checked=cb.checked;
+                    var tr=tableCheckbox?tableCheckbox.closest('tr'):null;
+                    if(tr)tr.classList.toggle('selected',cb.checked);
+                    updateSelBar();
                 });
                 gridCont.appendChild(card);
             });

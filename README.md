@@ -217,8 +217,9 @@ The directory listing features a modern, responsive design:
 ### Local (Docker)
 
 ```bash
-make deploy               # Build image + run container on :8080
-make test-deploy           # Smoke test against running container
+make deploy               # Run container on :8080 (image must exist)
+make deploy-smoke          # Smoke test against running container (40+ checks)
+make deploy-all            # Deploy + smoke test (all-in-one)
 make undeploy              # Stop and remove container
 ```
 

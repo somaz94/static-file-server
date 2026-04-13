@@ -221,6 +221,11 @@ type batchDownloadRequest struct {
 	Files []string `json:"files"`
 }
 
+const (
+	maxBatchFiles = 100
+	maxBatchSize  = 500 << 20 // 500 MB
+)
+
 // handleBatchDownload creates a zip archive of the requested files and streams it.
 func handleBatchDownload(w http.ResponseWriter, r *http.Request, fsPath string, hideDot bool) {
 	if r.Method != http.MethodPost {
@@ -238,16 +243,28 @@ func handleBatchDownload(w http.ResponseWriter, r *http.Request, fsPath string, 
 		http.Error(w, "No files specified", http.StatusBadRequest)
 		return
 	}
+	if len(req.Files) > maxBatchFiles {
+		http.Error(w, fmt.Sprintf("Too many files (max %d)", maxBatchFiles), http.StatusBadRequest)
+		return
+	}
 
-	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", `attachment; filename="download.zip"`)
+	// Resolve absolute base path for traversal check.
+	absBase, err := filepath.Abs(fsPath)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
 
-	zw := zip.NewWriter(w)
-	defer zw.Close()
+	// Pre-validate all files and enforce total size limit.
+	type validFile struct {
+		name string
+		path string
+	}
+	var files []validFile
+	var totalSize int64
 
 	for _, name := range req.Files {
-		// Prevent path traversal: reject names with slashes or ".."
-		if strings.ContainsAny(name, "/\\") || name == ".." || name == "." {
+		if name == "" || strings.ContainsAny(name, "/\\") || name == ".." || name == "." {
 			continue
 		}
 		if hideDot && strings.HasPrefix(name, ".") {
@@ -255,22 +272,51 @@ func handleBatchDownload(w http.ResponseWriter, r *http.Request, fsPath string, 
 		}
 
 		fpath := filepath.Join(fsPath, name)
-		info, err := os.Stat(fpath)
-		if err != nil || info.IsDir() {
-			continue
+		absPath, err := filepath.Abs(fpath)
+		if err != nil || !strings.HasPrefix(absPath, absBase+string(filepath.Separator)) {
+			continue // path traversal attempt
 		}
 
-		fw, err := zw.Create(name)
-		if err != nil {
-			continue
+		info, err := os.Lstat(fpath)
+		if err != nil || info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			continue // skip dirs and symlinks
 		}
 
-		f, err := os.Open(fpath)
-		if err != nil {
-			continue
+		totalSize += info.Size()
+		if totalSize > maxBatchSize {
+			http.Error(w, "Total file size exceeds limit", http.StatusRequestEntityTooLarge)
+			return
 		}
-		io.Copy(fw, f)
+
+		files = append(files, validFile{name: name, path: fpath})
+	}
+
+	if len(files) == 0 {
+		http.Error(w, "No valid files to download", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="download.zip"`)
+
+	zw := zip.NewWriter(w)
+	defer zw.Close()
+
+	for _, vf := range files {
+		fw, err := zw.Create(vf.name)
+		if err != nil {
+			return
+		}
+
+		f, err := os.Open(vf.path)
+		if err != nil {
+			return
+		}
+		_, copyErr := io.Copy(fw, f)
 		f.Close()
+		if copyErr != nil {
+			return
+		}
 	}
 }
 

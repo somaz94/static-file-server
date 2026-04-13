@@ -38,7 +38,7 @@ docker run -d \
   --name static-file-server \
   -p 8080:8080 \
   -v /path/to/files:/web:ro \
-  somaz940/static-file-server:latest
+  somaz940/static-file-server:v0.4.0
 ```
 
 ### With environment variables
@@ -51,18 +51,21 @@ docker run -d \
   -e PORT=3000 \
   -e CORS=true \
   -e SHOW_LISTING=true \
-  somaz940/static-file-server:latest
+  somaz940/static-file-server:v0.4.0
 ```
 
 ### Using Makefile
 
 ```bash
-# Deploy locally (builds image + runs container)
+# Deploy locally (image must exist; run 'make docker-build' first)
 make deploy
 make deploy DEPLOY_PORT=3000 DEPLOY_VOLUME=/path/to/files
 
-# Smoke test
-make test-deploy
+# Smoke test (40+ checks: health, UI, accessibility, batch download)
+make deploy-smoke
+
+# Deploy + smoke test in one step
+make deploy-all
 
 # Stop and remove
 make undeploy
@@ -177,7 +180,7 @@ helm install my-server ./helm/static-file-server -f values-ingress.yaml
 ### Upgrade and uninstall
 
 ```bash
-helm upgrade my-server ./helm/static-file-server --set image.tag=v0.2.0
+helm upgrade my-server ./helm/static-file-server --set image.tag=v0.4.0
 helm uninstall my-server
 ```
 

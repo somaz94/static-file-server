@@ -40,15 +40,16 @@ make vet              # Run go vet
 make cross-build      # Cross-compile for multiple platforms
 make docker-build     # Build Docker image
 make docker-buildx    # Multi-arch Docker build + push
-make deploy           # Docker: build + run container on :8080
-make test-deploy      # Smoke test against running container
+make deploy           # Docker: run container on :8080 (image must exist)
+make deploy-smoke     # Smoke test against running container (40+ checks)
+make deploy-all       # Deploy + smoke test (all-in-one)
 make undeploy         # Docker: stop + remove container
 make deploy-k8s       # Kubernetes: apply deployment + service
 make undeploy-k8s     # Kubernetes: delete deployment + service
 make install          # Install binary to /usr/local/bin
 make uninstall        # Remove binary from /usr/local/bin
 make version          # Show version across all files
-make bump-version VERSION=v0.2.0  # Bump version everywhere
+make bump-version VERSION=v0.4.0  # Bump version everywhere
 make test-helm        # Helm chart lint + template tests
 make check-gh         # Verify gh CLI auth
 make branch name=foo  # Create feature branch
