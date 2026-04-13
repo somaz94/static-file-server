@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -43,6 +44,42 @@ type ListingEntry struct {
 	SizeBytes   int64
 	ModTime     string
 	ModTimeUnix int64
+	Ext         string // file category for icon selection (e.g. "image", "code", "archive")
+}
+
+// fileCategory returns a category string based on file extension for icon display.
+func fileCategory(name string) string {
+	ext := strings.ToLower(filepath.Ext(name))
+	switch ext {
+	case ".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp", ".bmp", ".ico", ".tiff":
+		return "image"
+	case ".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".wmv":
+		return "video"
+	case ".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a":
+		return "audio"
+	case ".pdf":
+		return "pdf"
+	case ".doc", ".docx", ".odt", ".rtf", ".txt", ".md", ".csv", ".tsv":
+		return "doc"
+	case ".xls", ".xlsx", ".ods":
+		return "sheet"
+	case ".ppt", ".pptx", ".odp":
+		return "slide"
+	case ".zip", ".tar", ".gz", ".bz2", ".xz", ".rar", ".7z", ".tgz":
+		return "archive"
+	case ".go", ".py", ".js", ".ts", ".java", ".c", ".cpp", ".h", ".rs", ".rb",
+		".php", ".swift", ".kt", ".scala", ".sh", ".bash", ".zsh", ".ps1",
+		".html", ".css", ".scss", ".less", ".jsx", ".tsx", ".vue", ".svelte":
+		return "code"
+	case ".json", ".yaml", ".yml", ".toml", ".xml", ".ini", ".env", ".conf", ".cfg":
+		return "config"
+	case ".exe", ".bin", ".dll", ".so", ".dylib", ".wasm":
+		return "binary"
+	case ".ttf", ".otf", ".woff", ".woff2", ".eot":
+		return "font"
+	default:
+		return "file"
+	}
 }
 
 // renderListing reads a directory and renders the HTML listing template.
@@ -86,6 +123,11 @@ func renderListing(w http.ResponseWriter, _ *http.Request, fsPath, urlPath strin
 			href += "/"
 		}
 
+		ext := ""
+		if !e.IsDir() {
+			ext = fileCategory(name)
+		}
+
 		listing = append(listing, ListingEntry{
 			Name:        name,
 			Href:        href,
@@ -94,6 +136,7 @@ func renderListing(w http.ResponseWriter, _ *http.Request, fsPath, urlPath strin
 			SizeBytes:   info.Size(),
 			ModTime:     info.ModTime().Format(time.DateTime),
 			ModTimeUnix: info.ModTime().Unix(),
+			Ext:         ext,
 		})
 	}
 

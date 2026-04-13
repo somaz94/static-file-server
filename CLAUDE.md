@@ -11,19 +11,29 @@ Feature-compatible with halverneus/static-file-server with improved directory li
 - `cmd/cli/` - Command definitions (root serve, version)
 - `internal/config/` - Configuration loading (env vars > YAML > defaults)
 - `internal/handler/` - HTTP handler middleware chain + directory listing
+- `internal/handler/templates/` - Embedded HTML template with icons, search, preview
 - `internal/server/` - HTTP/HTTPS server lifecycle
 - `internal/version/` - Build version metadata injected via ldflags
 
 ## Build & Run
 
 ```bash
-make build        # Build binary to bin/
-make test         # Run all tests with race detection
-make run          # Build and run
-make install      # Install to /usr/local/bin
-make cover        # Generate HTML coverage report
-make fmt          # Format code
-make vet          # Run go vet
+make help             # Show all available targets
+make build            # Build binary to bin/
+make test             # Run all tests with race detection
+make test-unit        # Unit tests (internal packages)
+make test-integration # Integration tests (end-to-end HTTP)
+make run              # Build and run
+make install          # Install to /usr/local/bin
+make cover            # Generate HTML coverage report
+make lint             # Run golangci-lint
+make lint-fix         # Run golangci-lint with auto-fix
+make fmt              # Format code
+make vet              # Run go vet
+make cross-build      # Cross-compile for multiple platforms
+make version          # Print version info
+make docker-build     # Build Docker image
+make docker-buildx    # Multi-arch Docker build + push
 ```
 
 ## Configuration Priority
@@ -59,10 +69,28 @@ make vet          # Run go vet
 5. CORS headers
 6. File handler (index/listing/basic)
 
+## Directory Listing UI Features
+
+- Extension-based file icons (13 categories: image, video, audio, pdf, doc, sheet, slide, archive, code, config, binary, font, file)
+- Client-side search/filter (keyboard: `/` to focus, `Esc` to clear)
+- Inline preview modal for images, video, and audio
+- Column sorting (name, size, modified date)
+- Breadcrumb navigation
+- Dark mode (follows system preference)
+- Responsive design (mobile-friendly)
+
 ## Testing
 
 ```bash
-make test         # All tests
-make test-unit    # Internal packages only
-make cover        # HTML coverage report
+make test             # All tests
+make test-unit        # Internal packages only
+make test-integration # Integration (end-to-end HTTP) tests only
+make cover            # HTML coverage report
 ```
+
+Test coverage:
+- `internal/version` - 100%
+- `internal/handler` - ~83%
+- `internal/config` - ~68%
+- `internal/server` - ~29%
+- Integration tests: 12 end-to-end scenarios
