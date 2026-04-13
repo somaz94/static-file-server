@@ -24,8 +24,9 @@ type Config struct {
 	TLSCert     string   `yaml:"tls-cert"`
 	TLSKey      string   `yaml:"tls-key"`
 	TLSMinVers  string   `yaml:"tls-min-vers"`
-	Referrers   []string `yaml:"referrers"`
-	AccessKey   string   `yaml:"access-key"`
+	Referrers     []string          `yaml:"referrers"`
+	AccessKey     string            `yaml:"access-key"`
+	CustomHeaders map[string]string `yaml:"custom-headers"`
 }
 
 // Default returns a Config with default values matching halverneus behavior.
@@ -42,8 +43,9 @@ func Default() *Config {
 		TLSCert:     "",
 		TLSKey:      "",
 		TLSMinVers:  "",
-		Referrers:   nil,
-		AccessKey:   "",
+		Referrers:     nil,
+		AccessKey:     "",
+		CustomHeaders: nil,
 	}
 }
 
@@ -117,6 +119,9 @@ func (c *Config) loadEnv() {
 	if v, ok := os.LookupEnv("ACCESS_KEY"); ok {
 		c.AccessKey = v
 	}
+	if v, ok := os.LookupEnv("CUSTOM_HEADERS"); ok {
+		c.CustomHeaders = parseHeaders(v)
+	}
 }
 
 // validate checks for configuration errors.
@@ -176,6 +181,7 @@ func (c *Config) Summary() string {
 	fmt.Fprintf(&b, "  TLSMinVers:   %q\n", c.TLSMinVers)
 	fmt.Fprintf(&b, "  Referrers:    %v\n", c.Referrers)
 	fmt.Fprintf(&b, "  AccessKey:    %t\n", c.AccessKey != "")
+	fmt.Fprintf(&b, "  CustomHeaders: %v\n", c.CustomHeaders)
 	return b.String()
 }
 
@@ -218,6 +224,24 @@ func parseReferrers(s string) []string {
 	result := make([]string, 0, len(parts))
 	for _, p := range parts {
 		result = append(result, strings.TrimSpace(p))
+	}
+	return result
+}
+
+// parseHeaders parses a comma-separated "Key:Value,Key2:Value2" string into a map.
+func parseHeaders(s string) map[string]string {
+	if s == "" {
+		return nil
+	}
+	result := make(map[string]string)
+	for _, pair := range strings.Split(s, ",") {
+		parts := strings.SplitN(strings.TrimSpace(pair), ":", 2)
+		if len(parts) == 2 {
+			result[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		}
+	}
+	if len(result) == 0 {
+		return nil
 	}
 	return result
 }

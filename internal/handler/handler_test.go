@@ -464,6 +464,68 @@ func TestSafePath(t *testing.T) {
 	}
 }
 
+func TestHealthz(t *testing.T) {
+	dir := setupTestDir(t)
+	cfg := config.Default()
+	cfg.Folder = dir
+
+	h := Build(cfg)
+
+	req := httptest.NewRequest("GET", "/healthz", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	if w.Body.String() != "ok" {
+		t.Errorf("expected body 'ok', got %q", w.Body.String())
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "text/plain" {
+		t.Errorf("expected text/plain, got %s", ct)
+	}
+}
+
+func TestHealthzBypassesMiddleware(t *testing.T) {
+	dir := setupTestDir(t)
+	cfg := config.Default()
+	cfg.Folder = dir
+	cfg.AccessKey = "secret"
+
+	h := Build(cfg)
+
+	// /healthz should work even with access key required
+	req := httptest.NewRequest("GET", "/healthz", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("healthz should bypass access key, got %d", w.Code)
+	}
+}
+
+func TestWithCustomHeaders(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	headers := map[string]string{
+		"X-Custom-Test":          "hello",
+		"X-Frame-Options":       "DENY",
+		"X-Content-Type-Options": "nosniff",
+	}
+	h := withCustomHeaders(inner, headers)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	for key, val := range headers {
+		if got := w.Header().Get(key); got != val {
+			t.Errorf("header %s: expected %q, got %q", key, val, got)
+		}
+	}
+}
+
 // helpers
 
 func containsAll(s string, subs ...string) bool {

@@ -30,6 +30,9 @@ type ListingData struct {
 	ParentPath  string
 	Entries     []ListingEntry
 	Version     string
+	TotalFiles  int
+	TotalDirs   int
+	TotalSize   string
 }
 
 // Breadcrumb represents a single breadcrumb navigation element.
@@ -153,6 +156,17 @@ func renderListing(w http.ResponseWriter, _ *http.Request, fsPath, urlPath strin
 	})
 
 	data.Entries = listing
+
+	var totalSize int64
+	for _, e := range listing {
+		if e.IsDir {
+			data.TotalDirs++
+		} else {
+			data.TotalFiles++
+			totalSize += e.SizeBytes
+		}
+	}
+	data.TotalSize = formatSize(totalSize)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := listingTmpl.ExecuteTemplate(w, "listing.html", data); err != nil {

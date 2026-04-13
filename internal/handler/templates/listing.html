@@ -424,7 +424,11 @@
             </table>
         </div>
 
-        <div class="footer">static-file-server {{.Version}}</div>
+        <div class="footer">
+            <span>{{.TotalDirs}} folders, {{.TotalFiles}} files ({{.TotalSize}})</span>
+            &middot;
+            <span>static-file-server {{.Version}}</span>
+        </div>
     </div>
 
     <div class="preview-overlay" id="previewOverlay">

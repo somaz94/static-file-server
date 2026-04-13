@@ -14,7 +14,7 @@ import (
 )
 
 // Build creates the complete HTTP handler chain from configuration.
-// Middleware order (outer to inner): logging → prefix → accessKey → referrer → CORS → fileHandler
+// Middleware order (outer to inner): logging → prefix → accessKey → referrer → CORS → customHeaders → fileHandler
 func Build(cfg *config.Config) http.Handler {
 	var handler http.Handler
 
@@ -28,6 +28,10 @@ func Build(cfg *config.Config) http.Handler {
 		handler = index(cfg.Folder)
 	default:
 		handler = basic(cfg.Folder)
+	}
+
+	if len(cfg.CustomHeaders) > 0 {
+		handler = withCustomHeaders(handler, cfg.CustomHeaders)
 	}
 
 	if cfg.CORS {
@@ -50,7 +54,31 @@ func Build(cfg *config.Config) http.Handler {
 		handler = withLogging(handler)
 	}
 
-	return handler
+	// Wrap with health check (bypasses all middleware)
+	return withHealthz(handler)
+}
+
+// withHealthz adds a /healthz endpoint that bypasses all middleware.
+func withHealthz(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/healthz" {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, "ok")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// withCustomHeaders adds custom response headers to all responses.
+func withCustomHeaders(next http.Handler, headers map[string]string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for key, value := range headers {
+			w.Header().Set(key, value)
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // safePath resolves a URL path against the folder root, preventing directory traversal.

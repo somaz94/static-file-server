@@ -414,3 +414,46 @@ func TestValidation_PortZero(t *testing.T) {
 		t.Error("expected validation error for port 0")
 	}
 }
+
+func TestParseHeaders(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected map[string]string
+	}{
+		{"", nil},
+		{"X-Test:hello", map[string]string{"X-Test": "hello"}},
+		{"X-A:1,X-B:2", map[string]string{"X-A": "1", "X-B": "2"}},
+		{"  X-Spaced : value  ", map[string]string{"X-Spaced": "value"}},
+		{"invalid-no-colon", nil},
+	}
+
+	for _, tt := range tests {
+		got := parseHeaders(tt.input)
+		if len(got) != len(tt.expected) {
+			t.Errorf("input %q: expected %d headers, got %d", tt.input, len(tt.expected), len(got))
+			continue
+		}
+		for k, v := range tt.expected {
+			if got[k] != v {
+				t.Errorf("input %q: header %q expected %q, got %q", tt.input, k, v, got[k])
+			}
+		}
+	}
+}
+
+func TestLoadEnvCustomHeaders(t *testing.T) {
+	t.Setenv("CUSTOM_HEADERS", "X-Frame-Options:DENY,X-Test:hello")
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if cfg.CustomHeaders == nil {
+		t.Fatal("expected CustomHeaders to be set")
+	}
+	if cfg.CustomHeaders["X-Frame-Options"] != "DENY" {
+		t.Errorf("expected X-Frame-Options DENY, got %s", cfg.CustomHeaders["X-Frame-Options"])
+	}
+	if cfg.CustomHeaders["X-Test"] != "hello" {
+		t.Errorf("expected X-Test hello, got %s", cfg.CustomHeaders["X-Test"])
+	}
+}
