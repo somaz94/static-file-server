@@ -2,6 +2,30 @@ apiVersion: v1
 entries:
   static-file-server:
   - apiVersion: v2
+    appVersion: v0.2.0
+    created: "2026-04-13T03:47:47.54348224Z"
+    description: A Helm chart for lightweight static file server with modern directory
+      listing UI
+    digest: b0724a9c7f9cca34d6d6af2bbf46087101dcde6705e011b1020dae7668501595
+    home: https://github.com/somaz94/static-file-server
+    keywords:
+    - static
+    - file-server
+    - web
+    - directory-listing
+    - lightweight
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: somaz94
+      url: https://github.com/somaz94
+    name: static-file-server
+    sources:
+    - https://github.com/somaz94/static-file-server
+    type: application
+    urls:
+    - https://somaz94.github.io/static-file-server/helm-repo/static-file-server-0.2.0.tgz
+    version: 0.2.0
+  - apiVersion: v2
     appVersion: v0.1.0
     created: "2026-04-13T03:00:53.181547839Z"
     description: A Helm chart for lightweight static file server with modern directory
@@ -25,4 +49,4 @@ entries:
     urls:
     - https://somaz94.github.io/static-file-server/helm-repo/static-file-server-0.1.0.tgz
     version: 0.1.0
-generated: "2026-04-13T03:00:53.180674215Z"
+generated: "2026-04-13T03:47:47.542639462Z"
