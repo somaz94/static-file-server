@@ -16,7 +16,9 @@ Feature-compatible with halverneus/static-file-server with improved directory li
 - `internal/version/` - Build version metadata injected via ldflags
 - `deploy/` - Kubernetes manifests (Deployment + Service)
 - `helm/static-file-server/` - Helm chart (deployment, service, ingress, PVC, configmap)
-- `docs/` - Documentation (configuration guide, deployment guide)
+- `docs/` - Documentation (configuration, deployment, version/release)
+- `hack/` - Build/version scripts (bump-version.sh, test-helm.sh)
+- `scripts/` - Utility scripts (create-pr.sh)
 - `testdata/` - Sample files for local deploy testing
 - `.github/workflows/` - CI/CD pipelines (test, lint, release, helm-release, etc.)
 - `.github/dependabot.yml` - Dependabot config (docker, actions, gomod)
@@ -37,7 +39,6 @@ make lint-fix         # Run golangci-lint with auto-fix
 make fmt              # Format code
 make vet              # Run go vet
 make cross-build      # Cross-compile for multiple platforms
-make version          # Print version info
 make docker-build     # Build Docker image
 make docker-buildx    # Multi-arch Docker build + push
 make deploy           # Docker: build + run container on :8080
@@ -47,6 +48,12 @@ make deploy-k8s       # Kubernetes: apply deployment + service
 make undeploy-k8s     # Kubernetes: delete deployment + service
 make install          # Install binary to /usr/local/bin
 make uninstall        # Remove binary from /usr/local/bin
+make version          # Show version across all files
+make bump-version VERSION=v0.2.0  # Bump version everywhere
+make test-helm        # Helm chart lint + template tests
+make check-gh         # Verify gh CLI auth
+make branch name=foo  # Create feature branch
+make pr title="..."   # Test + push + create PR
 ```
 
 ## Configuration Priority

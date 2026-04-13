@@ -99,7 +99,9 @@ make lint-fix         # Run golangci-lint with auto-fix
 make fmt              # Format code
 make vet              # Run go vet
 make cross-build      # Build for linux/darwin amd64/arm64
-make version          # Print version info
+make test-helm        # Helm chart lint + template tests
+make version          # Show version across all files
+make bump-version VERSION=v0.2.0  # Bump version in all files
 ```
 
 <br/>
@@ -164,6 +166,27 @@ See [docs/deployment.md](docs/deployment.md) for advanced deployment options (PV
 
 <br/>
 
+## Version Management
+
+```bash
+make version                      # Show version across all files
+make bump-version VERSION=v0.2.0  # Bump version in all files at once
+```
+
+See [docs/version.md](docs/version.md) for the release process.
+
+<br/>
+
+## Workflow
+
+```bash
+make check-gh                     # Verify gh CLI is installed and authenticated
+make branch name=search-filter    # Create feature branch (feat/search-filter)
+make pr title="Add search filter" # Run tests, push, and create PR
+```
+
+<br/>
+
 ## Directory Listing UI
 
 The directory listing features a modern, responsive design:
@@ -187,7 +210,9 @@ internal/server/        # HTTP/HTTPS server lifecycle
 internal/version/       # Build version metadata (ldflags)
 deploy/                 # Kubernetes manifests (Deployment + Service)
 helm/                   # Helm chart
-docs/                   # Documentation (configuration, deployment)
+docs/                   # Documentation (configuration, deployment, version)
+hack/                   # Scripts (bump-version, test-helm)
+scripts/                # Utility scripts (create-pr)
 testdata/               # Sample files for local deploy testing
 .github/workflows/      # CI/CD (test, lint, release, helm-release)
 ```
