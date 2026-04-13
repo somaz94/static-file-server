@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/somaz94/static-file-server/internal/version"
 )
 
 //go:embed templates/listing.html
@@ -27,6 +29,7 @@ type ListingData struct {
 	HasParent   bool
 	ParentPath  string
 	Entries     []ListingEntry
+	Version     string
 }
 
 // Breadcrumb represents a single breadcrumb navigation element.
@@ -101,6 +104,7 @@ func renderListing(w http.ResponseWriter, _ *http.Request, fsPath, urlPath strin
 		Breadcrumbs: buildBreadcrumbs(urlPath),
 		HasParent:   urlPath != "/",
 		ParentPath:  path.Dir(strings.TrimSuffix(urlPath, "/")),
+		Version:     version.Version,
 	}
 
 	if data.ParentPath == "." {
