@@ -180,3 +180,51 @@ helm install my-server ./helm/static-file-server -f values-ingress.yaml
 helm upgrade my-server ./helm/static-file-server --set image.tag=v0.2.0
 helm uninstall my-server
 ```
+
+<br/>
+
+## Kubernetes (Helmfile)
+
+Example helmfile configuration is provided in `deploy/helmfile/`.
+
+### Prerequisites
+
+```bash
+# Install helmfile
+brew install helmfile    # macOS
+# or download from https://github.com/helmfile/helmfile/releases
+```
+
+### Deploy with helmfile
+
+```bash
+# Apply to mgmt environment
+helmfile -f deploy/helmfile/helmfile.yaml -e mgmt apply
+
+# Preview changes
+helmfile -f deploy/helmfile/helmfile.yaml -e mgmt diff
+
+# Destroy
+helmfile -f deploy/helmfile/helmfile.yaml -e mgmt destroy
+```
+
+### Customize
+
+Copy `deploy/helmfile/values/mgmt.yaml` and adjust for your environment:
+
+```bash
+cp deploy/helmfile/values/mgmt.yaml deploy/helmfile/values/prod.yaml
+# Edit prod.yaml with your domain, storage, and resource values
+```
+
+Then add the new environment to `deploy/helmfile/helmfile.yaml`:
+
+```yaml
+environments:
+  mgmt:
+    values:
+      - values/mgmt.yaml
+  prod:
+    values:
+      - values/prod.yaml
+```

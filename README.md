@@ -243,7 +243,7 @@ internal/config/        # Configuration loading (env > YAML > defaults)
 internal/handler/       # HTTP middleware chain + directory listing
 internal/server/        # HTTP/HTTPS server lifecycle
 internal/version/       # Build version metadata (ldflags)
-deploy/                 # Kubernetes manifests (Deployment + Service)
+deploy/                 # Kubernetes manifests + Helmfile examples
 helm/                   # Helm chart (7 templates + 7 examples)
 docs/                   # Documentation
 hack/                   # Build/version scripts

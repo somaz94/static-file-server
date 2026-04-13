@@ -1,0 +1,37 @@
+environments:
+  mgmt:
+    values:
+      - values/mgmt.yaml
+
+---
+
+releases:
+  - name: static-file-server
+    namespace: static-file-server
+    createNamespace: true
+    chart: ../../helm/static-file-server
+    version: 0.1.0
+    values:
+      - values/mgmt.yaml
+    labels:
+      environment: mgmt
+
+# helmDefaults:
+#   wait: true
+#   timeout: 300
+#   atomic: true
+#   cleanupOnFail: true
+
+hooks:
+  - events: ["presync"]
+    showlogs: true
+    command: "kubectl"
+    args:
+      - "create"
+      - "namespace"
+      - "static-file-server"
+      - "--dry-run=client"
+      - "-o"
+      - "yaml"
+      - "||"
+      - "true"

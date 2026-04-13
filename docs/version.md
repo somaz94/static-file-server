@@ -12,6 +12,9 @@ Version is tracked in the following files:
 | `helm/static-file-server/Chart.yaml` | `version` | `0.1.0` (without `v`) |
 | `helm/static-file-server/Chart.yaml` | `appVersion` | `v0.1.0` |
 | `helm/static-file-server/values.yaml` | `image.tag` | `v0.1.0` |
+| `deploy/deployment.yaml` | `image` | `somaz940/static-file-server:v0.1.0` |
+| `deploy/helmfile/helmfile.yaml` | `version` | `0.1.0` (without `v`) |
+| `deploy/helmfile/values/mgmt.yaml` | `image.tag` | `v0.1.0` |
 
 <br/>
 
@@ -26,10 +29,13 @@ Output:
 Current version: v0.1.0
 
 Version in each file:
-  Makefile:                 v0.1.0
-  Chart.yaml (version):     0.1.0
-  Chart.yaml (appVersion):  v0.1.0
-  values.yaml (image.tag):  v0.1.0
+  Makefile:                           v0.1.0
+  Chart.yaml (version):               0.1.0
+  Chart.yaml (appVersion):            v0.1.0
+  values.yaml (image.tag):            v0.1.0
+  deployment.yaml (image):            v0.1.0
+  helmfile.yaml (version):            0.1.0
+  helmfile mgmt.yaml (image.tag):     v0.1.0
 ```
 
 <br/>
@@ -46,6 +52,9 @@ This updates:
 - `Makefile` IMG tag
 - `Chart.yaml` version + appVersion
 - `values.yaml` image.tag
+- `deploy/deployment.yaml` image tag
+- `deploy/helmfile/helmfile.yaml` version
+- `deploy/helmfile/values/mgmt.yaml` image.tag
 - `README.md` version references
 
 <br/>

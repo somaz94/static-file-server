@@ -14,7 +14,7 @@ Feature-compatible with halverneus/static-file-server with improved directory li
 - `internal/handler/templates/` - Embedded HTML template with icons, search, preview
 - `internal/server/` - HTTP/HTTPS server lifecycle
 - `internal/version/` - Build version metadata injected via ldflags
-- `deploy/` - Kubernetes manifests (Deployment + Service)
+- `deploy/` - Kubernetes manifests (Deployment + Service) + Helmfile examples
 - `helm/static-file-server/` - Helm chart (deployment, service, ingress, PVC, configmap)
 - `docs/` - Documentation (configuration, deployment, version/release)
 - `hack/` - Build/version scripts (bump-version.sh, test-helm.sh)

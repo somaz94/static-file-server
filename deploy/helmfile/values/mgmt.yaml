@@ -1,0 +1,97 @@
+# Example values for mgmt environment
+# Copy this file and customize for your environment
+
+replicaCount: 1
+
+revisionHistoryLimit: 1
+
+image:
+  repository: somaz940/static-file-server
+  pullPolicy: IfNotPresent
+  tag: "v0.1.0"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+config:
+  folder: /web
+  port: "8080"
+  cors: "true"
+  debug: "true"
+  allowIndex: "true"
+  showListing: "true"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "false"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: static-files.example.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+
+resources: {}
+
+probes:
+  liveness:
+    enabled: true
+    path: /
+    port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readiness:
+    enabled: true
+    path: /
+    port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+persistentVolumes:
+  enabled: true
+  items:
+    - name: static-file-server-pv
+      storage: 5Gi
+      volumeMode: Filesystem
+      accessModes:
+        - ReadWriteMany
+      reclaimPolicy: Retain
+      storageClassName: nfs-client
+      nfs:
+        server: "10.0.0.1"
+        path: "/mnt/nfs/data"
+
+persistentVolumeClaims:
+  enabled: true
+  items:
+    - name: static-file-server-pvc
+      accessModes:
+        - ReadWriteMany
+      storageClassName: nfs-client
+      storage: 5Gi
+      mountPath: /web
+      volumeName: static-file-server-pv
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -29,9 +29,6 @@ go.work.sum
 # Docker cross-build artifact
 Dockerfile.cross
 
-# Helmfile test deployment (contains real environment values)
-deploy/helmfile/
-
 # OS files
 .DS_Store
 

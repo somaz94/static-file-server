@@ -35,14 +35,17 @@ if [[ "$1" == "--current" ]]; then
         echo "Error: Could not detect current version from Makefile"
         exit 1
     fi
+    CURRENT_CHART="${CURRENT#v}"
     echo "Current version: ${CURRENT}"
     echo ""
     echo "Version in each file:"
-    printf "  %-25s %s\n" "Makefile:" "${CURRENT}"
-    printf "  %-25s %s\n" "Chart.yaml (version):" "$(grep '^version:' "${ROOT_DIR}/helm/${PROJECT_NAME}/Chart.yaml" | awk '{print $2}')"
-    printf "  %-25s %s\n" "Chart.yaml (appVersion):" "$(grep '^appVersion:' "${ROOT_DIR}/helm/${PROJECT_NAME}/Chart.yaml" | awk -F'"' '{print $2}')"
-    printf "  %-25s %s\n" "values.yaml (image.tag):" "$(grep 'tag:' "${ROOT_DIR}/helm/${PROJECT_NAME}/values.yaml" | head -1 | awk '{print $2}' | tr -d '\"')"
-    printf "  %-25s %s\n" "deployment.yaml (image):" "$(grep -o "${PROJECT_NAME}:v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*" "${ROOT_DIR}/deploy/deployment.yaml" | head -1 | cut -d: -f2)"
+    printf "  %-35s %s\n" "Makefile:" "${CURRENT}"
+    printf "  %-35s %s\n" "Chart.yaml (version):" "$(grep '^version:' "${ROOT_DIR}/helm/${PROJECT_NAME}/Chart.yaml" | awk '{print $2}')"
+    printf "  %-35s %s\n" "Chart.yaml (appVersion):" "$(grep '^appVersion:' "${ROOT_DIR}/helm/${PROJECT_NAME}/Chart.yaml" | awk -F'"' '{print $2}')"
+    printf "  %-35s %s\n" "values.yaml (image.tag):" "$(grep 'tag:' "${ROOT_DIR}/helm/${PROJECT_NAME}/values.yaml" | head -1 | awk '{print $2}' | tr -d '\"')"
+    printf "  %-35s %s\n" "deployment.yaml (image):" "$(grep -o "${PROJECT_NAME}:v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*" "${ROOT_DIR}/deploy/deployment.yaml" | head -1 | cut -d: -f2)"
+    printf "  %-35s %s\n" "helmfile.yaml (version):" "$(grep '    version:' "${ROOT_DIR}/deploy/helmfile/helmfile.yaml" 2>/dev/null | awk '{print $2}')"
+    printf "  %-35s %s\n" "helmfile mgmt.yaml (image.tag):" "$(grep 'tag:' "${ROOT_DIR}/deploy/helmfile/values/mgmt.yaml" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '\"')"
     exit 0
 fi
 
@@ -118,6 +121,18 @@ update_file "${ROOT_DIR}/deploy/deployment.yaml" \
     "${PROJECT_NAME}:${CURRENT_VERSION}" \
     "${PROJECT_NAME}:${NEW_VERSION}" \
     "deploy/deployment.yaml (image)"
+
+echo ""
+echo "==> Updating helmfile example files..."
+update_file "${ROOT_DIR}/deploy/helmfile/helmfile.yaml" \
+    "version: ${CURRENT_CHART_VERSION}" \
+    "version: ${CHART_VERSION}" \
+    "deploy/helmfile/helmfile.yaml (version)"
+
+update_file "${ROOT_DIR}/deploy/helmfile/values/mgmt.yaml" \
+    "tag: \"${CURRENT_VERSION}\"" \
+    "tag: \"${NEW_VERSION}\"" \
+    "deploy/helmfile/values/mgmt.yaml (image.tag)"
 
 echo ""
 echo "==> Updating documentation files..."
