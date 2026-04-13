@@ -212,7 +212,7 @@ pr: check-gh ## Run tests, push, and create PR (usage: make pr title="Add featur
 ##@ Deploy
 
 .PHONY: deploy
-deploy: docker-build ## Deploy as Docker container (local)
+deploy: ## Deploy as Docker container (local). Use 'make docker-build deploy' to rebuild first
 	@mkdir -p $(DEPLOY_VOLUME)
 	@echo "Stopping existing container (if any)..."
 	-@$(CONTAINER_TOOL) rm -f $(DEPLOY_NAME) 2>/dev/null
