@@ -15,7 +15,11 @@ Feature-compatible with halverneus/static-file-server with improved directory li
 - `internal/server/` - HTTP/HTTPS server lifecycle
 - `internal/version/` - Build version metadata injected via ldflags
 - `deploy/` - Kubernetes manifests (Deployment + Service)
+- `helm/static-file-server/` - Helm chart (deployment, service, ingress, PVC, configmap)
+- `docs/` - Documentation (configuration guide, deployment guide)
 - `testdata/` - Sample files for local deploy testing
+- `.github/workflows/` - CI/CD pipelines (test, lint, release, helm-release, etc.)
+- `.github/dependabot.yml` - Dependabot config (docker, actions, gomod)
 
 ## Build & Run
 
@@ -97,9 +101,33 @@ make test-integration # Integration (end-to-end HTTP) tests only
 make cover            # HTML coverage report
 ```
 
-Test coverage:
+Test coverage (93.5% total):
 - `internal/version` - 100%
-- `internal/handler` - ~83%
-- `internal/config` - ~68%
-- `internal/server` - ~29%
+- `internal/server` - 100%
+- `internal/config` - 98.9%
+- `internal/handler` - 90.3%
 - Integration tests: 12 end-to-end scenarios
+
+## CI/CD Workflows
+
+- `test.yml` - Run tests on push to main / PRs (90% coverage gate)
+- `lint.yml` - golangci-lint (manual dispatch)
+- `release.yml` - Docker build + push + GitHub release on tags
+- `helm-release.yml` - Package and publish Helm chart on tags
+- `changelog-generator.yml` - Auto-generate CHANGELOG.md
+- `contributors.yml` - Auto-generate CONTRIBUTORS.md
+- `stale-issues.yml` - Close stale issues after 30 days
+- `dependabot-auto-merge.yml` - Auto-merge minor/patch dependabot PRs
+- `issue-greeting.yml` - Greet new issue authors
+
+## Helm Chart
+
+Location: `helm/static-file-server/`
+
+Key features:
+- ServiceAccount, Deployment, Service, Ingress (optional)
+- PersistentVolumeClaim for file storage (optional)
+- ConfigMap-based content for small static sites (optional)
+- Security: non-root, no privilege escalation, read-only rootfs
+- Customizable probes, resources, env vars
+- Helm test (wget connectivity check)

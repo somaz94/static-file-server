@@ -2,8 +2,6 @@
 
 A lightweight, zero-dependency static file server written in Go with a modern directory listing UI.
 
-Feature-compatible with [halverneus/static-file-server](https://github.com/halverneus/static-file-server) with improved directory listing UI.
-
 <br/>
 
 ## Features
@@ -142,6 +140,28 @@ make undeploy-k8s K8S_NAMESPACE=web     # Remove from specific namespace
 
 Manifests are in `deploy/deployment.yaml` (Deployment + Service).
 
+### Helm
+
+```bash
+# Install from local chart
+helm install my-server ./helm/static-file-server
+
+# With custom values
+helm install my-server ./helm/static-file-server \
+  --set config.cors=true \
+  --set service.type=LoadBalancer
+
+# From Helm repository
+helm repo add static-file-server https://somaz94.github.io/static-file-server/helm-repo
+helm repo update
+helm install my-server static-file-server/static-file-server
+
+# Uninstall
+helm uninstall my-server
+```
+
+See [docs/deployment.md](docs/deployment.md) for advanced deployment options (PVC, ConfigMap, Ingress).
+
 <br/>
 
 ## Directory Listing UI
@@ -166,7 +186,10 @@ internal/handler/       # HTTP middleware chain + directory listing
 internal/server/        # HTTP/HTTPS server lifecycle
 internal/version/       # Build version metadata (ldflags)
 deploy/                 # Kubernetes manifests (Deployment + Service)
+helm/                   # Helm chart
+docs/                   # Documentation (configuration, deployment)
 testdata/               # Sample files for local deploy testing
+.github/workflows/      # CI/CD (test, lint, release, helm-release)
 ```
 
 <br/>
@@ -184,6 +207,12 @@ Applied outer to inner:
 
 <br/>
 
+## Contributing
+
+Issues and pull requests are welcome.
+
+<br/>
+
 ## License
 
-MIT
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.

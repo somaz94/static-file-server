@@ -1,0 +1,125 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "static-file-server.fullname" . }}
+  labels:
+    {{- include "static-file-server.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "static-file-server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "static-file-server.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "static-file-server.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ int .Values.config.port }}
+              protocol: TCP
+          env:
+            - name: FOLDER
+              value: {{ .Values.config.folder | quote }}
+            - name: PORT
+              value: {{ .Values.config.port | quote }}
+            - name: CORS
+              value: {{ .Values.config.cors | quote }}
+            - name: DEBUG
+              value: {{ .Values.config.debug | quote }}
+            - name: ALLOW_INDEX
+              value: {{ .Values.config.allowIndex | quote }}
+            - name: SHOW_LISTING
+              value: {{ .Values.config.showListing | quote }}
+            {{- if .Values.config.urlPrefix }}
+            - name: URL_PREFIX
+              value: {{ .Values.config.urlPrefix | quote }}
+            {{- end }}
+            {{- if .Values.config.tlsCert }}
+            - name: TLS_CERT
+              value: {{ .Values.config.tlsCert | quote }}
+            {{- end }}
+            {{- if .Values.config.tlsKey }}
+            - name: TLS_KEY
+              value: {{ .Values.config.tlsKey | quote }}
+            {{- end }}
+            {{- if .Values.config.tlsMinVers }}
+            - name: TLS_MIN_VERS
+              value: {{ .Values.config.tlsMinVers | quote }}
+            {{- end }}
+            {{- if .Values.config.referrers }}
+            - name: REFERRERS
+              value: {{ .Values.config.referrers | quote }}
+            {{- end }}
+            {{- if .Values.config.accessKey }}
+            - name: ACCESS_KEY
+              value: {{ .Values.config.accessKey | quote }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if .Values.probes.liveness.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: {{ .Values.probes.liveness.port }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+          {{- end }}
+          {{- if .Values.probes.readiness.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: {{ .Values.probes.readiness.port }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: web-content
+              mountPath: {{ .Values.config.folder }}
+              readOnly: true
+      volumes:
+        - name: web-content
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (printf "%s-data" (include "static-file-server.fullname" .)) }}
+          {{- else if .Values.content.enabled }}
+          configMap:
+            name: {{ include "static-file-server.fullname" . }}-content
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

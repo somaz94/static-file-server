@@ -1,0 +1,122 @@
+# Default values for static-file-server.
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+image:
+  repository: somaz940/static-file-server
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to Chart.appVersion
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+# Static file server configuration (environment variables)
+config:
+  folder: /web
+  port: "8080"
+  cors: "false"
+  debug: "false"
+  allowIndex: "true"
+  showListing: "true"
+  urlPrefix: ""
+  # TLS (optional)
+  tlsCert: ""
+  tlsKey: ""
+  tlsMinVers: ""
+  # Access control (optional)
+  referrers: ""
+  accessKey: ""
+
+# Extra environment variables
+extraEnv: []
+# Example:
+#   - name: CUSTOM_VAR
+#     value: "custom-value"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: files.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: files-tls
+  #    hosts:
+  #      - files.example.com
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 32Mi
+
+probes:
+  liveness:
+    enabled: true
+    path: /
+    port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readiness:
+    enabled: true
+    path: /
+    port: http
+    initialDelaySeconds: 3
+    periodSeconds: 5
+
+# Persistent volume for serving files
+persistence:
+  enabled: false
+  accessMode: ReadOnlyMany
+  size: 1Gi
+  storageClass: ""
+  existingClaim: ""
+
+# ConfigMap-based content (for small static sites)
+content:
+  enabled: false
+  files: {}
+  # Example:
+  #   index.html: |
+  #     <html><body><h1>Hello!</h1></body></html>
+  #   style.css: |
+  #     body { margin: 0; }
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

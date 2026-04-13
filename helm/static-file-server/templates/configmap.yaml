@@ -1,0 +1,13 @@
+{{- if .Values.content.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "static-file-server.fullname" . }}-content
+  labels:
+    {{- include "static-file-server.labels" . | nindent 4 }}
+data:
+  {{- range $name, $content := .Values.content.files }}
+  {{ $name }}: |
+    {{- $content | nindent 4 }}
+  {{- end }}
+{{- end }}
