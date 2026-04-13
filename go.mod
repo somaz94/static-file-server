@@ -1,6 +1,6 @@
 module github.com/somaz94/static-file-server
 
-go 1.24
+go 1.26
 
 require (
 	github.com/spf13/cobra v1.10.2

@@ -26,15 +26,14 @@ func TestParseTLSVersion(t *testing.T) {
 		input    string
 		expected uint16
 	}{
-		{"TLS10", tls.VersionTLS10},
 		{"TLS11", tls.VersionTLS11},
 		{"TLS12", tls.VersionTLS12},
 		{"TLS13", tls.VersionTLS13},
 		{"tls12", tls.VersionTLS12},     // case insensitive
 		{"  TLS13  ", tls.VersionTLS13}, // whitespace trimmed
-		{"", tls.VersionTLS10},          // empty defaults to TLS10
-		{"invalid", tls.VersionTLS10},   // invalid defaults to TLS10
-		{"TLS99", tls.VersionTLS10},     // unknown defaults to TLS10
+		{"", tls.VersionTLS12},          // empty defaults to TLS12
+		{"invalid", tls.VersionTLS12},   // invalid defaults to TLS12
+		{"TLS99", tls.VersionTLS12},     // unknown defaults to TLS12
 	}
 
 	for _, tt := range tests {

@@ -2,13 +2,14 @@
 package handler
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/somaz94/static-file-server/internal/config"
 )
@@ -249,7 +250,7 @@ func withAccessKey(next http.Handler, accessKey string) http.Handler {
 
 		// MD5 code match: ?code=<MD5(path + key)>
 		if code := query.Get("code"); code != "" {
-			expected := fmt.Sprintf("%X", md5.Sum([]byte(r.URL.Path+accessKey)))
+			expected := fmt.Sprintf("%X", sha256.Sum256([]byte(r.URL.Path+accessKey)))
 			if strings.EqualFold(code, expected) {
 				next.ServeHTTP(w, r)
 				return
@@ -275,12 +276,26 @@ func withPrefix(next http.Handler, prefix string) http.Handler {
 	})
 }
 
-// withLogging logs each request to stderr.
+// responseRecorder wraps http.ResponseWriter to capture the status code.
+type responseRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (rr *responseRecorder) WriteHeader(code int) {
+	rr.status = code
+	rr.ResponseWriter.WriteHeader(code)
+}
+
+// withLogging logs each request with response status and elapsed time to stderr.
 func withLogging(next http.Handler) http.Handler {
 	logger := log.New(os.Stderr, "", log.LstdFlags)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Printf("%s %s %s %s %s referer=%q",
-			r.RemoteAddr, r.Method, r.Proto, r.Host, r.URL.Path, r.Referer())
-		next.ServeHTTP(w, r)
+		start := time.Now()
+		rec := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		logger.Printf("%s %s %s %s %s %d %s referer=%q",
+			r.RemoteAddr, r.Method, r.Proto, r.Host, r.URL.Path,
+			rec.status, time.Since(start), r.Referer())
 	})
 }

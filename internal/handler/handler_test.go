@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -222,20 +222,20 @@ func TestWithAccessKey(t *testing.T) {
 	}
 }
 
-func TestWithAccessKeyMD5(t *testing.T) {
+func TestWithAccessKeySHA256(t *testing.T) {
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	h := withAccessKey(inner, "secret")
 
-	// MD5("/test" + "secret") in uppercase hex
-	expected := fmt.Sprintf("%X", md5Sum("/test"+"secret"))
+	// SHA-256("/test" + "secret") in uppercase hex
+	expected := fmt.Sprintf("%X", sha256.Sum256([]byte("/test"+"secret")))
 	req := httptest.NewRequest("GET", "/test?code="+expected, nil)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("expected 200 with valid MD5 code, got %d", w.Code)
+		t.Errorf("expected 200 with valid SHA-256 code, got %d", w.Code)
 	}
 }
 
@@ -537,6 +537,3 @@ func containsAll(s string, subs ...string) bool {
 	return true
 }
 
-func md5Sum(s string) [16]byte {
-	return md5.Sum([]byte(s))
-}

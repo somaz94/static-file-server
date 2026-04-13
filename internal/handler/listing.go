@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"embed"
 	"fmt"
 	"html/template"
@@ -168,10 +169,13 @@ func renderListing(w http.ResponseWriter, _ *http.Request, fsPath, urlPath strin
 	}
 	data.TotalSize = formatSize(totalSize)
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := listingTmpl.ExecuteTemplate(w, "listing.html", data); err != nil {
+	var buf bytes.Buffer
+	if err := listingTmpl.ExecuteTemplate(&buf, "listing.html", data); err != nil {
 		http.Error(w, "Template rendering failed", http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	buf.WriteTo(w)
 }
 
 // buildBreadcrumbs generates navigation breadcrumbs from a URL path.
