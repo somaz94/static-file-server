@@ -57,18 +57,22 @@ docker run -d \
 ### Using Makefile
 
 ```bash
-# Deploy locally (image must exist; run 'make docker-build' first)
+# Build binary + run local server
 make deploy
 make deploy DEPLOY_PORT=3000 DEPLOY_VOLUME=/path/to/files
 
-# Smoke test (40+ checks: health, UI, accessibility, batch download)
+# Smoke test (43 checks: health, UI, accessibility, batch download)
 make deploy-smoke
 
-# Deploy + smoke test in one step
+# Build + run + smoke test in one step
 make deploy-all
 
-# Stop and remove
+# Stop local server
 make undeploy
+
+# Docker container deployment
+make deploy-docker       # pulls image if not local
+make undeploy-docker
 ```
 
 <br/>

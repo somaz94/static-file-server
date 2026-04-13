@@ -212,7 +212,24 @@ pr: check-gh ## Run tests, push, and create PR (usage: make pr title="Add featur
 ##@ Deploy
 
 .PHONY: deploy
-deploy: ## Deploy as Docker container (local)
+deploy: build ## Build binary + run local server
+	@echo "Stopping existing process (if any)..."
+	-@pkill -f "bin/$(APP_NAME)" 2>/dev/null || true
+	@sleep 0.5
+	@mkdir -p $(DEPLOY_VOLUME)
+	@echo "Starting $(APP_NAME) on port $(DEPLOY_PORT)..."
+	@FOLDER=$(DEPLOY_VOLUME) PORT=$(DEPLOY_PORT) SHOW_LISTING=true ./bin/$(APP_NAME) &
+	@sleep 1
+	@echo "Server running at http://localhost:$(DEPLOY_PORT) (PID: $$(pgrep -f 'bin/$(APP_NAME)'))"
+
+.PHONY: undeploy
+undeploy: ## Stop local server
+	@echo "Stopping $(APP_NAME)..."
+	-@pkill -f "bin/$(APP_NAME)" 2>/dev/null || true
+	@echo "Server stopped."
+
+.PHONY: deploy-docker
+deploy-docker: ## Deploy as Docker container (pulls image if not local)
 	@if ! $(CONTAINER_TOOL) image inspect ${IMG} >/dev/null 2>&1; then \
 		echo "\033[33m⚠ Image ${IMG} not found locally. Pulling from registry...\033[0m"; \
 		$(CONTAINER_TOOL) pull ${IMG} || { echo "\033[31m✗ Pull failed. Run 'make docker-build' to build locally.\033[0m"; exit 1; }; \
@@ -228,18 +245,18 @@ deploy: ## Deploy as Docker container (local)
 		${IMG}
 	@echo "Container $(DEPLOY_NAME) running at http://localhost:$(DEPLOY_PORT)"
 
-.PHONY: undeploy
-undeploy: ## Stop and remove Docker container
+.PHONY: undeploy-docker
+undeploy-docker: ## Stop and remove Docker container
 	@echo "Stopping $(DEPLOY_NAME)..."
 	-$(CONTAINER_TOOL) rm -f $(DEPLOY_NAME) 2>/dev/null
 	@echo "Container $(DEPLOY_NAME) removed."
 
 .PHONY: deploy-smoke
-deploy-smoke: ## Smoke test against running container (40+ checks)
+deploy-smoke: ## Smoke test against running server (40+ checks)
 	@bash hack/test-deploy.sh $(DEPLOY_PORT)
 
 .PHONY: deploy-all
-deploy-all: deploy deploy-smoke ## Deploy + smoke test (all-in-one)
+deploy-all: deploy deploy-smoke ## Build + run + smoke test (all-in-one)
 
 .PHONY: deploy-k8s
 deploy-k8s: ## Deploy to Kubernetes cluster

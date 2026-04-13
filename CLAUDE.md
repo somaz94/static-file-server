@@ -40,10 +40,12 @@ make vet              # Run go vet
 make cross-build      # Cross-compile for multiple platforms
 make docker-build     # Build Docker image
 make docker-buildx    # Multi-arch Docker build + push
-make deploy           # Docker: run container on :8080 (image must exist)
-make deploy-smoke     # Smoke test against running container (40+ checks)
-make deploy-all       # Deploy + smoke test (all-in-one)
-make undeploy         # Docker: stop + remove container
+make deploy           # Build binary + run local server on :8080
+make deploy-smoke     # Smoke test against running server (43 checks)
+make deploy-all       # Build + run + smoke test (all-in-one)
+make undeploy         # Stop local server
+make deploy-docker    # Run as Docker container (pulls if needed)
+make undeploy-docker  # Stop and remove Docker container
 make deploy-k8s       # Kubernetes: apply deployment + service
 make undeploy-k8s     # Kubernetes: delete deployment + service
 make install          # Install binary to /usr/local/bin

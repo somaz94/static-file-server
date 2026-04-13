@@ -217,10 +217,12 @@ The directory listing features a modern, responsive design:
 ### Local (Docker)
 
 ```bash
-make deploy               # Run container on :8080 (image must exist)
-make deploy-smoke          # Smoke test against running container (40+ checks)
-make deploy-all            # Deploy + smoke test (all-in-one)
-make undeploy              # Stop and remove container
+make deploy               # Build binary + run local server on :8080
+make deploy-smoke          # Smoke test against running server (43 checks)
+make deploy-all            # Build + run + smoke test (all-in-one)
+make undeploy              # Stop local server
+make deploy-docker         # Run as Docker container
+make undeploy-docker       # Stop Docker container
 ```
 
 ### Kubernetes (kubectl)

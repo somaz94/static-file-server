@@ -47,7 +47,7 @@ for i in 1 2 3 4 5; do
 done
 check "GET /healthz => 200" "true"
 
-# Fetch root listing once
+# Fetch root directory listing
 BODY=$(curl -s "${BASE}/")
 
 # ---------------------------------------------------------------
@@ -91,7 +91,8 @@ check "File extension badges"     "$(body_contains 'ext-badge')"
 # 5. Preview features
 # ---------------------------------------------------------------
 echo "[5/8] Preview features..."
-check "Image preview link"        "$(body_contains 'data-preview="image"')"
+IMG_BODY=$(curl -s "${BASE}/images/")
+check "Image preview link"        "$(echo "$IMG_BODY" | grep -q 'data-preview="image"' && echo true || echo false)"
 check "Text preview link"         "$(body_contains 'data-preview="text"')"
 check "Gallery prev button"       "$(body_contains 'id="prevBtn"')"
 check "Gallery next button"       "$(body_contains 'id="nextBtn"')"
