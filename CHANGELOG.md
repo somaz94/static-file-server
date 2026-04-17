@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.5.0](https://github.com/somaz94/static-file-server/compare/v0.4.1...v0.5.0) (2026-04-17)
+
+### Features
+
+- **helm:** add Gateway API HTTPRoute template with HTTPS redirect support ([1e94edb](https://github.com/somaz94/static-file-server/commit/1e94edb8edbc25bc17e7a29779fae28d1b350b63))
+- add security headers middleware, gzip/buffer pooling, and CLI tests ([34dac42](https://github.com/somaz94/static-file-server/commit/34dac429b783e43a1a9a62cfc777bf619ed7bf11))
+
+### Documentation
+
+- add deploy directory README and link from main docs ([1c9d7c8](https://github.com/somaz94/static-file-server/commit/1c9d7c8c3f43c2a07b126351f0dc5fe510f3d552))
+- add directory listing UI screenshot to README ([6f1e6bc](https://github.com/somaz94/static-file-server/commit/6f1e6bc1928519b9d5aed54c2d475ab79671f7f6))
+- slim down README and extract UI docs ([a67e7cc](https://github.com/somaz94/static-file-server/commit/a67e7cc177734abea8c8bd7f8d5cad6beef6b7be))
+
+### Chores
+
+- bump version to v0.5.0 ([098c8c4](https://github.com/somaz94/static-file-server/commit/098c8c4d502c7c0515d9ba9a32d9f4b0e2433620))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.4.1](https://github.com/somaz94/static-file-server/compare/v0.4.0...v0.4.1) (2026-04-13)
 
 ### Features
