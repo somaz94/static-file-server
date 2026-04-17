@@ -2,8 +2,8 @@ apiVersion: v2
 name: static-file-server
 description: A Helm chart for lightweight static file server with modern directory listing UI
 type: application
-version: 0.4.1
-appVersion: "v0.4.1"
+version: 0.5.0
+appVersion: "v0.5.0"
 
 kubeVersion: ">=1.16.0-0"
 

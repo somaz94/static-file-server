@@ -70,7 +70,7 @@ docker run -d \
   --name static-file-server \
   -p 8080:8080 \
   -v /path/to/files:/web:ro \
-  somaz940/static-file-server:v0.4.1
+  somaz940/static-file-server:v0.5.0
 ```
 
 <br/>

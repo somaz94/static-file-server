@@ -21,7 +21,7 @@ spec:
         fsGroup: 65532
       containers:
         - name: static-file-server
-          image: somaz940/static-file-server:v0.4.1
+          image: somaz940/static-file-server:v0.5.0
           ports:
             - name: http
               containerPort: 8080
