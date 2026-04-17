@@ -87,6 +87,69 @@ ingress:
   #    hosts:
   #      - files.example.com
 
+# Gateway API HTTPRoute — alternative to Ingress when using a Gateway API
+# implementation (NGINX Gateway Fabric, Istio, Cilium, Contour, etc.).
+# Enable either `ingress` or `httproute`, not both.
+#
+# HTTPS notes:
+#   - TLS termination is declared on the Gateway's listener, not here.
+#   - For HTTPS traffic, set `parentRefs[*].sectionName` to the HTTPS listener
+#     name on your Gateway (e.g. "https").
+#   - To force HTTP → HTTPS redirect, enable `httproute.httpsRedirect`; it
+#     renders a sibling HTTPRoute bound to the HTTP listener with a
+#     RequestRedirect filter (scheme=https, default 301).
+httproute:
+  enabled: false
+  annotations: {}
+
+  # One or more Gateways to attach to. Gateway must have `allowedRoutes`
+  # permitting this namespace (or `from: All`).
+  parentRefs:
+    - name: ""
+      # namespace: nginx-gateway
+      # sectionName: https   # bind to a specific listener (e.g. https / http)
+      # port: 443            # rarely needed; usually inferred from the listener
+
+  hostnames: []
+    # - files.example.com
+
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix   # PathPrefix | Exact | RegularExpression
+            value: /
+          # headers:           # optional
+          #   - name: X-Env
+          #     value: prod
+          # queryParams: []    # optional
+          # method: GET        # optional
+      # filters:                # optional — URLRewrite / RequestRedirect /
+      #   - type: URLRewrite    #            RequestHeaderModifier / etc.
+      #     urlRewrite:
+      #       path:
+      #         type: ReplacePrefixMatch
+      #         replacePrefixMatch: /
+      # timeouts:               # optional
+      #   request: 60s
+      #   backendRequest: 30s
+      backendRefs:
+        - # name defaults to the chart fullname (this release's Service)
+          # port defaults to .Values.service.port
+          port: 80
+          # weight: 1
+
+  # HTTP → HTTPS redirect (sibling HTTPRoute on the HTTP listener).
+  # Requires your Gateway to expose both HTTP and HTTPS listeners and your
+  # main route above to bind to the HTTPS listener via sectionName.
+  httpsRedirect:
+    enabled: false
+    statusCode: 301            # 301 | 302 | 307 | 308
+    # port: 443                # only if the HTTPS listener uses a non-default port
+    parentRefs:
+      - name: ""
+        # namespace: nginx-gateway
+        # sectionName: http
+
 resources:
   limits:
     cpu: 200m

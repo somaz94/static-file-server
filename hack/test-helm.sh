@@ -103,7 +103,39 @@ helm template test-release "${CHART_DIR}" \
 echo "  [OK] Full options render successfully"
 echo ""
 
-# 9. Template render (all example files)
+# 9. Template render (httproute - basic HTTP)
+echo "--- Template (httproute - HTTP) ---"
+helm template test-release "${CHART_DIR}" \
+    --set httproute.enabled=true \
+    --set "httproute.parentRefs[0].name=test-gateway" \
+    --set "httproute.parentRefs[0].namespace=gateway-system" \
+    --set-json 'httproute.hostnames=["test.example.com"]' \
+    --set "httproute.rules[0].matches[0].path.type=PathPrefix" \
+    --set "httproute.rules[0].matches[0].path.value=/" \
+    --set "httproute.rules[0].backendRefs[0].port=80" > /dev/null
+echo "  [OK] HTTPRoute (HTTP) render successfully"
+echo ""
+
+# 10. Template render (httproute - HTTPS with HTTP→HTTPS redirect sibling)
+echo "--- Template (httproute - HTTPS + redirect) ---"
+helm template test-release "${CHART_DIR}" \
+    --set httproute.enabled=true \
+    --set "httproute.parentRefs[0].name=test-gateway" \
+    --set "httproute.parentRefs[0].namespace=gateway-system" \
+    --set "httproute.parentRefs[0].sectionName=https" \
+    --set-json 'httproute.hostnames=["test.example.com"]' \
+    --set "httproute.rules[0].matches[0].path.type=PathPrefix" \
+    --set "httproute.rules[0].matches[0].path.value=/" \
+    --set "httproute.rules[0].backendRefs[0].port=80" \
+    --set httproute.httpsRedirect.enabled=true \
+    --set httproute.httpsRedirect.statusCode=301 \
+    --set "httproute.httpsRedirect.parentRefs[0].name=test-gateway" \
+    --set "httproute.httpsRedirect.parentRefs[0].namespace=gateway-system" \
+    --set "httproute.httpsRedirect.parentRefs[0].sectionName=http" > /dev/null
+echo "  [OK] HTTPRoute (HTTPS + redirect) render successfully"
+echo ""
+
+# 11. Template render (all example files)
 echo "--- Template (example values) ---"
 for f in "${CHART_DIR}"/examples/*.yaml; do
     name=$(basename "$f" .yaml)
@@ -112,5 +144,5 @@ for f in "${CHART_DIR}"/examples/*.yaml; do
 done
 echo ""
 
-TOTAL=$((8 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
+TOTAL=$((10 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
 echo "==> All Helm chart tests passed! (${TOTAL} scenarios)"

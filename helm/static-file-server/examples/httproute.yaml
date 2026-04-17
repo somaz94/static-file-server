@@ -1,0 +1,44 @@
+# Example: Gateway API HTTPRoute (HTTP, no TLS)
+#
+# Usage:
+#   helm install my-server ./helm/static-file-server -f helm/static-file-server/examples/httproute.yaml
+#
+# Prerequisites:
+#   - Gateway API CRDs installed (standard channel)
+#   - A Gateway API controller (NGINX Gateway Fabric, Istio, Cilium, Contour, ...)
+#   - A Gateway resource exists and allows routes from this namespace
+#
+# Notes:
+#   - Ingress is disabled; pick either `ingress` or `httproute`, not both.
+#   - This example binds to the default HTTP listener (no sectionName).
+
+replicaCount: 2
+
+config:
+  folder: /web
+  port: "8080"
+  allowIndex: "true"
+  showListing: "true"
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: "nfs-client"                 # <-- Replace
+
+ingress:
+  enabled: false
+
+httproute:
+  enabled: true
+  parentRefs:
+    - name: my-gateway                       # <-- Replace with your Gateway name
+      namespace: gateway-system               # <-- Replace with your Gateway namespace
+  hostnames:
+    - files.example.com                      # <-- Replace
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - port: 80

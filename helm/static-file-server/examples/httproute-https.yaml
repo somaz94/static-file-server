@@ -1,0 +1,56 @@
+# Example: Gateway API HTTPRoute with HTTPS + HTTP→HTTPS redirect
+#
+# Usage:
+#   helm install my-server ./helm/static-file-server -f helm/static-file-server/examples/httproute-https.yaml
+#
+# Prerequisites:
+#   - Gateway API CRDs installed (standard channel)
+#   - A Gateway with BOTH http and https listeners, named "http" and "https"
+#     (adjust sectionName below to match your listener names)
+#   - A TLS secret referenced on the Gateway's https listener
+#     (TLS termination is declared on the Gateway, not the HTTPRoute)
+#
+# Behavior:
+#   - Traffic to http://files.example.com → 301 redirect to https
+#   - Traffic to https://files.example.com → served by this app
+
+replicaCount: 2
+
+config:
+  folder: /web
+  port: "8080"
+  allowIndex: "true"
+  showListing: "true"
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: "nfs-client"                 # <-- Replace
+
+ingress:
+  enabled: false
+
+httproute:
+  enabled: true
+  parentRefs:
+    - name: my-gateway                       # <-- Replace
+      namespace: gateway-system              # <-- Replace
+      sectionName: https                     # main route attaches to HTTPS listener
+  hostnames:
+    - files.example.com                      # <-- Replace
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - port: 80
+
+  # Sibling HTTPRoute on the HTTP listener that 301-redirects to HTTPS.
+  httpsRedirect:
+    enabled: true
+    statusCode: 301
+    parentRefs:
+      - name: my-gateway                     # <-- Replace
+        namespace: gateway-system            # <-- Replace
+        sectionName: http                    # redirect route attaches to HTTP listener

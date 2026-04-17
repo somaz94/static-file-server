@@ -214,6 +214,8 @@ See the [examples/](examples/) directory for ready-to-use value files:
 | AWS EBS CSI | [csi-ebs.yaml](examples/csi-ebs.yaml) | AWS EBS volume |
 | ConfigMap site | [configmap-site.yaml](examples/configmap-site.yaml) | Small static site from ConfigMap |
 | Ingress + TLS | [ingress-tls.yaml](examples/ingress-tls.yaml) | cert-manager TLS termination |
+| HTTPRoute (HTTP) | [httproute.yaml](examples/httproute.yaml) | Gateway API, HTTP listener only |
+| HTTPRoute (HTTPS + redirect) | [httproute-https.yaml](examples/httproute-https.yaml) | Gateway API, HTTPS + sibling HTTP→HTTPS 301 |
 | Multi-volume | [multi-volume.yaml](examples/multi-volume.yaml) | NFS + extra ConfigMap volume |
 
 <br/>
