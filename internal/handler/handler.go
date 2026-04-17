@@ -3,6 +3,7 @@ package handler
 
 import (
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -16,7 +17,7 @@ import (
 )
 
 // Build creates the complete HTTP handler chain from configuration.
-// Middleware order (outer to inner): logging → prefix → accessKey → referrer → CORS → customHeaders → compression → dotFiles → fileHandler
+// Middleware order (outer to inner): logging → prefix → accessKey → referrer → CORS → customHeaders → compression → dotFiles → securityHeaders → fileHandler
 func Build(cfg *config.Config) http.Handler {
 	var handler http.Handler
 
@@ -33,6 +34,9 @@ func Build(cfg *config.Config) http.Handler {
 	default:
 		handler = basic(cfg.Folder)
 	}
+
+	// Security headers applied to all responses.
+	handler = withSecurityHeaders(handler)
 
 	if cfg.HideDotFiles {
 		handler = withHideDotFiles(handler)
@@ -76,6 +80,14 @@ func Build(cfg *config.Config) http.Handler {
 	return handler
 }
 
+// withSecurityHeaders adds default security headers to all responses.
+func withSecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // withHealthz adds a /healthz endpoint that bypasses all middleware.
 func withHealthz(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -99,15 +111,21 @@ func withCustomHeaders(next http.Handler, headers map[string]string) http.Handle
 	})
 }
 
+// resolveAbsFolder computes the absolute path once at handler construction time.
+func resolveAbsFolder(folder string) string {
+	abs, err := filepath.Abs(folder)
+	if err != nil {
+		return folder
+	}
+	return abs
+}
+
 // safePath resolves a URL path against the folder root, preventing directory traversal.
-func safePath(folder, urlPath string) (string, error) {
+// absFolder must be pre-computed via resolveAbsFolder at handler creation time.
+func safePath(folder, absFolder, urlPath string) (string, error) {
 	cleaned := filepath.Clean("/" + urlPath)
 	fullPath := filepath.Join(folder, cleaned)
 
-	absFolder, err := filepath.Abs(folder)
-	if err != nil {
-		return "", err
-	}
 	absPath, err := filepath.Abs(fullPath)
 	if err != nil {
 		return "", err
@@ -123,8 +141,9 @@ func safePath(folder, urlPath string) (string, error) {
 
 // basic serves files only. Directories return 404.
 func basic(folder string) http.HandlerFunc {
+	absFolder := resolveAbsFolder(folder)
 	return func(w http.ResponseWriter, r *http.Request) {
-		fpath, err := safePath(folder, r.URL.Path)
+		fpath, err := safePath(folder, absFolder, r.URL.Path)
 		if err != nil {
 			http.NotFound(w, r)
 			return
@@ -142,8 +161,9 @@ func basic(folder string) http.HandlerFunc {
 
 // index serves files and index.html for directories. No directory listing.
 func index(folder string) http.HandlerFunc {
+	absFolder := resolveAbsFolder(folder)
 	return func(w http.ResponseWriter, r *http.Request) {
-		fpath, err := safePath(folder, r.URL.Path)
+		fpath, err := safePath(folder, absFolder, r.URL.Path)
 		if err != nil {
 			http.NotFound(w, r)
 			return
@@ -171,8 +191,9 @@ func index(folder string) http.HandlerFunc {
 
 // listing serves files and directory listings. Does not prefer index.html.
 func listing(folder string, hideDot bool) http.HandlerFunc {
+	absFolder := resolveAbsFolder(folder)
 	return func(w http.ResponseWriter, r *http.Request) {
-		fpath, err := safePath(folder, r.URL.Path)
+		fpath, err := safePath(folder, absFolder, r.URL.Path)
 		if err != nil {
 			http.NotFound(w, r)
 			return
@@ -202,8 +223,9 @@ func listing(folder string, hideDot bool) http.HandlerFunc {
 // listingAndIndex serves files, prefers index.html for directories, falls back
 // to directory listing.
 func listingAndIndex(folder string, hideDot bool) http.HandlerFunc {
+	absFolder := resolveAbsFolder(folder)
 	return func(w http.ResponseWriter, r *http.Request) {
-		fpath, err := safePath(folder, r.URL.Path)
+		fpath, err := safePath(folder, absFolder, r.URL.Path)
 		if err != nil {
 			http.NotFound(w, r)
 			return
@@ -238,8 +260,9 @@ func listingAndIndex(folder string, hideDot bool) http.HandlerFunc {
 // spa serves files if they exist, otherwise falls back to /index.html.
 // Designed for single-page applications (React, Vue, Angular).
 func spa(folder string) http.HandlerFunc {
+	absFolder := resolveAbsFolder(folder)
 	return func(w http.ResponseWriter, r *http.Request) {
-		fpath, err := safePath(folder, r.URL.Path)
+		fpath, err := safePath(folder, absFolder, r.URL.Path)
 		if err != nil {
 			http.NotFound(w, r)
 			return
@@ -274,12 +297,20 @@ func withHideDotFiles(next http.Handler) http.Handler {
 	})
 }
 
-// withCORS adds CORS headers to all responses.
+// withCORS adds CORS headers to all responses and handles preflight OPTIONS requests.
 func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers", "*")
 		w.Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
+
+		if r.Method == http.MethodOptions {
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, HEAD, OPTIONS")
+			w.Header().Set("Access-Control-Max-Age", "86400")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -310,8 +341,8 @@ func withAccessKey(next http.Handler, accessKey string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		query := r.URL.Query()
 
-		// Direct key match: ?key=<access_key>
-		if key := query.Get("key"); key == accessKey {
+		// Direct key match: ?key=<access_key> (timing-safe comparison)
+		if key := query.Get("key"); subtle.ConstantTimeCompare([]byte(key), []byte(accessKey)) == 1 {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -339,6 +370,12 @@ func withPrefix(next http.Handler, prefix string) http.Handler {
 		r.URL.Path = strings.TrimPrefix(r.URL.Path, prefix)
 		if r.URL.Path == "" {
 			r.URL.Path = "/"
+		}
+		if r.URL.RawPath != "" {
+			r.URL.RawPath = strings.TrimPrefix(r.URL.RawPath, prefix)
+			if r.URL.RawPath == "" {
+				r.URL.RawPath = "/"
+			}
 		}
 		next.ServeHTTP(w, r)
 	})

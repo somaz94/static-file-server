@@ -26,7 +26,8 @@ var skipCompressionExts = map[string]bool{
 
 var gzipPool = sync.Pool{
 	New: func() any {
-		return gzip.NewWriter(io.Discard)
+		w, _ := gzip.NewWriterLevel(io.Discard, gzip.BestSpeed)
+		return w
 	},
 }
 

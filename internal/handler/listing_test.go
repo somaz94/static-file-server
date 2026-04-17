@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"archive/zip"
+	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -518,6 +521,74 @@ func TestBatchDownload(t *testing.T) {
 			t.Fatalf("expected 200, got %d", w.Code)
 		}
 	})
+}
+
+func TestBatchDownloadZIPContents(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("content-a"), 0644)
+	os.WriteFile(filepath.Join(dir, "b.txt"), []byte("content-b"), 0644)
+
+	body := strings.NewReader(`{"files":["a.txt","b.txt"]}`)
+	req := httptest.NewRequest("POST", "/?batch=zip", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	handleBatchDownload(w, req, dir, false)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	// Open the ZIP and verify contents.
+	zipData := w.Body.Bytes()
+	zr, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		t.Fatalf("failed to open zip: %v", err)
+	}
+
+	if len(zr.File) != 2 {
+		t.Fatalf("expected 2 files in zip, got %d", len(zr.File))
+	}
+
+	expected := map[string]string{
+		"a.txt": "content-a",
+		"b.txt": "content-b",
+	}
+
+	for _, f := range zr.File {
+		want, ok := expected[f.Name]
+		if !ok {
+			t.Errorf("unexpected file in zip: %s", f.Name)
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			t.Fatalf("failed to open %s: %v", f.Name, err)
+		}
+		data, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			t.Fatalf("failed to read %s: %v", f.Name, err)
+		}
+		if string(data) != want {
+			t.Errorf("file %s: expected %q, got %q", f.Name, want, string(data))
+		}
+	}
+}
+
+func TestBatchDownloadOversizedBody(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0644)
+
+	// Create a body larger than 1MB limit.
+	bigBody := strings.Repeat("x", 2<<20)
+	req := httptest.NewRequest("POST", "/?batch=zip", strings.NewReader(bigBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	handleBatchDownload(w, req, dir, false)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for oversized body, got %d", w.Code)
+	}
 }
 
 func TestBatchDownloadIntegration(t *testing.T) {

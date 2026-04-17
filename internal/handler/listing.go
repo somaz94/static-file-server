@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/somaz94/static-file-server/internal/version"
@@ -21,6 +22,10 @@ import (
 
 //go:embed templates/listing.html
 var templateFS embed.FS
+
+var bufPool = sync.Pool{
+	New: func() any { return new(bytes.Buffer) },
+}
 
 var listingFuncs = template.FuncMap{
 	"add": func(a, b int) int { return a + b },
@@ -187,8 +192,11 @@ func renderListing(w http.ResponseWriter, _ *http.Request, fsPath, urlPath strin
 	}
 	data.TotalSize = formatSize(totalSize)
 
-	var buf bytes.Buffer
-	if err := listingTmpl.ExecuteTemplate(&buf, "listing.html", data); err != nil {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+
+	if err := listingTmpl.ExecuteTemplate(buf, "listing.html", data); err != nil {
 		http.Error(w, "Template rendering failed", http.StatusInternalServerError)
 		return
 	}
@@ -222,9 +230,13 @@ type batchDownloadRequest struct {
 }
 
 const (
-	maxBatchFiles = 100
-	maxBatchSize  = 500 << 20 // 500 MB
+	maxBatchFiles       = 100
+	maxBatchSize        = 500 << 20 // 500 MB
+	maxConcurrentBatch  = 5
 )
+
+// batchSem limits the number of concurrent batch download operations.
+var batchSem = make(chan struct{}, maxConcurrentBatch)
 
 // handleBatchDownload creates a zip archive of the requested files and streams it.
 func handleBatchDownload(w http.ResponseWriter, r *http.Request, fsPath string, hideDot bool) {
@@ -232,6 +244,18 @@ func handleBatchDownload(w http.ResponseWriter, r *http.Request, fsPath string, 
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	// Limit concurrent batch downloads.
+	select {
+	case batchSem <- struct{}{}:
+		defer func() { <-batchSem }()
+	default:
+		http.Error(w, "Too many concurrent downloads", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Limit request body to 1 MB to prevent abuse.
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	var req batchDownloadRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

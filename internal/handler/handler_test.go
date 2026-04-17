@@ -163,6 +163,33 @@ func TestWithCORS(t *testing.T) {
 	}
 }
 
+func TestWithCORSPreflight(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	h := withCORS(inner)
+
+	req := httptest.NewRequest("OPTIONS", "/", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNoContent {
+		t.Errorf("expected 204 for OPTIONS preflight, got %d", w.Code)
+	}
+	if got := w.Header().Get("Access-Control-Allow-Methods"); got != "GET, POST, HEAD, OPTIONS" {
+		t.Errorf("expected Allow-Methods header, got %q", got)
+	}
+	if got := w.Header().Get("Access-Control-Max-Age"); got != "86400" {
+		t.Errorf("expected Max-Age header, got %q", got)
+	}
+	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Errorf("expected Allow-Origin *, got %q", got)
+	}
+	if w.Body.Len() != 0 {
+		t.Error("OPTIONS response should have no body")
+	}
+}
+
 func TestWithReferrer(t *testing.T) {
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -268,6 +295,27 @@ func TestWithPrefix(t *testing.T) {
 				t.Errorf("path %s: expected body %q, got %q", tt.path, tt.expected, w.Body.String())
 			}
 		})
+	}
+}
+
+func TestWithPrefixRawPath(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "path=%s rawpath=%s", r.URL.Path, r.URL.RawPath)
+	})
+	h := withPrefix(inner, "/api")
+
+	req := httptest.NewRequest("GET", "/api/my%20file.txt", nil)
+	// Manually set RawPath to simulate percent-encoded URL.
+	req.URL.RawPath = "/api/my%20file.txt"
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	expected := "path=/my file.txt rawpath=/my%20file.txt"
+	if w.Body.String() != expected {
+		t.Errorf("expected %q, got %q", expected, w.Body.String())
 	}
 }
 
@@ -453,6 +501,7 @@ func TestListingHandlerNotFound(t *testing.T) {
 
 func TestSafePath(t *testing.T) {
 	dir := t.TempDir()
+	absDir := resolveAbsFolder(dir)
 
 	tests := []struct {
 		urlPath  string
@@ -467,7 +516,7 @@ func TestSafePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.urlPath, func(t *testing.T) {
-			got, err := safePath(dir, tt.urlPath)
+			got, err := safePath(dir, absDir, tt.urlPath)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

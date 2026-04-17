@@ -151,7 +151,7 @@ helm/                   # Helm chart (7 templates + 7 examples)
 docs/                   # Documentation
 hack/                   # Build/version scripts
 testdata/               # Sample files for local deploy testing
-.github/workflows/      # CI/CD (9 workflows)
+.github/workflows/      # CI/CD (10 workflows)
 ```
 
 **Middleware chain** (outer to inner): Metrics → Health check → Logging → Prefix → Access key → Referrer → CORS → Custom headers → Compression → Dot files → File handler
@@ -165,7 +165,7 @@ make build            # Build binary
 make test             # Run all tests with race detector
 make cover            # HTML coverage report
 make lint             # Run golangci-lint
-make deploy-all       # Build + run + smoke test (47 checks)
+make deploy-all       # Build + run + smoke test (49 checks)
 make cross-build      # Build for linux/darwin amd64/arm64
 ```
 
