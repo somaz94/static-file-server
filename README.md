@@ -53,6 +53,14 @@ A lightweight, zero-dependency static file server written in Go with a modern di
 
 ### Helm (Recommended)
 
+**Recommended: OCI registry (Helm 3.8+)**
+
+```bash
+helm install my-server oci://ghcr.io/somaz94/charts/static-file-server --version 0.5.0
+```
+
+**Alternative: classic Helm repo**
+
 ```bash
 helm repo add static-file-server https://somaz94.github.io/static-file-server/helm-repo
 helm repo update
