@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.5.1](https://github.com/somaz94/static-file-server/compare/v0.5.0...v0.5.1) (2026-05-04)
+
+### Features
+
+- **ci:** publish Helm chart to GHCR (OCI) alongside gh-pages ([5b5cfc8](https://github.com/somaz94/static-file-server/commit/5b5cfc835e4f8311fad3c071a50973e9de3ac66a))
+
+### Bug Fixes
+
+- **ci:** use staged tarball for OCI push (gh-pages branch checkout invalidates ./helm/ path) ([119595f](https://github.com/somaz94/static-file-server/commit/119595f382e5be6632de9d26ba644c9e71674b3c))
+
+### Continuous Integration
+
+- use helm-chart-release-action@v1 (replace inline release script) ([3a54ca9](https://github.com/somaz94/static-file-server/commit/3a54ca96bd8c8953498bd456bacfc7f469316440))
+
+### Chores
+
+- bump chart version to v0.5.1 ([3d05b37](https://github.com/somaz94/static-file-server/commit/3d05b37618801e23e8191083c5f0ac8c2a193aa3))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.5.0](https://github.com/somaz94/static-file-server/compare/v0.4.1...v0.5.0) (2026-04-17)
 
 ### Features
