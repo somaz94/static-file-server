@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased (2026-06-23)
+
+### Builds
+
+- **deps:** bump actions/checkout from 6 to 7 (#10) ([#10](https://github.com/somaz94/static-file-server/pull/10)) ([8be59ee](https://github.com/somaz94/static-file-server/commit/8be59ee796e1a9a3b1a721646f2d2f85b3b03539))
+
+### Continuous Integration
+
+- add DCO check via shared reusable workflow ([2ef777b](https://github.com/somaz94/static-file-server/commit/2ef777bc2a9b1b0cf5a6a87119cf043b5b6927d0))
+- add concurrency guards to recurring workflows ([fce3e39](https://github.com/somaz94/static-file-server/commit/fce3e39688e77312adb87260849fbcef63bfaa0d))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.5.1](https://github.com/somaz94/static-file-server/compare/v0.5.0...v0.5.1) (2026-05-04)
 
 ### Features
