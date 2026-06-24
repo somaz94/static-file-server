@@ -254,7 +254,7 @@ DEBUG=true LOG_FORMAT=json static-file-server
 
 JSON log example:
 ```json
-{"time":"2026-04-13T14:30:00Z","remote":"192.168.1.10:54321","method":"GET","path":"/files/app.apk","proto":"HTTP/1.1","host":"example.com","status":200,"duration_ms":42}
+{"time":"2026-04-13T14:30:00Z","remote":"203.0.113.10:54321","method":"GET","path":"/files/app.apk","proto":"HTTP/1.1","host":"example.com","status":200,"duration_ms":42}
 ```
 
 <br/>
