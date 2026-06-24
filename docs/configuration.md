@@ -84,6 +84,68 @@ The combination of `ALLOW_INDEX` and `SHOW_LISTING` determines directory behavio
 
 <br/>
 
+## JSON Listing API
+
+Any directory that would render an HTML listing can also be returned as JSON,
+making the server scriptable for CI pipelines and tooling. JSON is requested in
+one of two ways:
+
+```bash
+# Query parameter
+curl "http://localhost:8080/some/dir/?format=json"
+
+# Accept header
+curl -H "Accept: application/json" "http://localhost:8080/some/dir/"
+```
+
+A JSON request takes priority over `index.html`: in the default
+`ALLOW_INDEX=true` + `SHOW_LISTING=true` mode, a directory containing
+`index.html` still returns the JSON listing rather than the index page.
+
+Response shape:
+
+```json
+{
+  "path": "/some/dir/",
+  "entries": [
+    {
+      "name": "src",
+      "href": "src/",
+      "is_dir": true,
+      "size": "4.0 KB",
+      "size_bytes": 4096,
+      "mod_time": "2026-06-24 12:00:00",
+      "mod_time_unix": 1782290128
+    },
+    {
+      "name": "main.go",
+      "href": "main.go",
+      "is_dir": false,
+      "size": "1.2 KB",
+      "size_bytes": 1234,
+      "mod_time": "2026-06-24 12:00:00",
+      "mod_time_unix": 1782290128,
+      "ext": "code",
+      "raw_ext": "go"
+    }
+  ],
+  "total_files": 1,
+  "total_dirs": 1,
+  "total_size": "1.2 KB",
+  "total_size_bytes": 1234
+}
+```
+
+Notes:
+
+- Entries are sorted directories-first, then alphabetically (same as the HTML view).
+- `ext` is the icon category (`image`, `code`, `archive`, …) and `raw_ext` is the
+  bare extension; both are omitted for directories and extension-less files.
+- `HIDE_DOT_FILES=true` also hides dot files from JSON listings.
+- The endpoint is read-only; batch ZIP download remains a separate `POST ?batch=zip` call.
+
+<br/>
+
 ## Access Control
 
 ### Access Key

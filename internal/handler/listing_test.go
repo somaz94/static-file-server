@@ -3,6 +3,7 @@ package handler
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -439,6 +440,156 @@ func TestRenderListingNewFeatures(t *testing.T) {
 	// data-href attribute for grid view
 	if !strings.Contains(body, `data-href=`) {
 		t.Error("rows should have data-href for grid view support")
+	}
+}
+
+func TestWantsJSON(t *testing.T) {
+	tests := []struct {
+		name   string
+		target string
+		accept string
+		want   bool
+	}{
+		{"format query", "/?format=json", "", true},
+		{"accept json", "/", "application/json", true},
+		{"accept json with others", "/", "text/html, application/json", true},
+		{"browser accept", "/", "text/html,application/xhtml+xml,*/*", false},
+		{"no signal", "/", "", false},
+		{"format other", "/?format=html", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tt.target, nil)
+			if tt.accept != "" {
+				req.Header.Set("Accept", tt.accept)
+			}
+			if got := wantsJSON(req); got != tt.want {
+				t.Errorf("wantsJSON() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRenderListingJSON(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "images"), 0755)
+	os.WriteFile(filepath.Join(dir, "readme.md"), []byte("hello"), 0644)
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
+
+	req := httptest.NewRequest("GET", "/?format=json", nil)
+	w := httptest.NewRecorder()
+	renderListing(w, req, dir, "/", false)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json; charset=utf-8" {
+		t.Errorf("expected JSON content type, got %s", ct)
+	}
+
+	var resp listingJSONResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode JSON: %v", err)
+	}
+
+	if resp.Path != "/" {
+		t.Errorf("expected path /, got %q", resp.Path)
+	}
+	if resp.TotalDirs != 1 {
+		t.Errorf("expected 1 dir, got %d", resp.TotalDirs)
+	}
+	if resp.TotalFiles != 2 {
+		t.Errorf("expected 2 files, got %d", resp.TotalFiles)
+	}
+	if len(resp.Entries) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(resp.Entries))
+	}
+
+	// Directory should sort first.
+	if !resp.Entries[0].IsDir || resp.Entries[0].Name != "images" {
+		t.Errorf("expected first entry to be images/ dir, got %+v", resp.Entries[0])
+	}
+
+	// Verify metadata of a file entry.
+	var goEntry *listingJSONEntry
+	for i := range resp.Entries {
+		if resp.Entries[i].Name == "main.go" {
+			goEntry = &resp.Entries[i]
+		}
+	}
+	if goEntry == nil {
+		t.Fatal("main.go entry missing")
+	}
+	if goEntry.IsDir {
+		t.Error("main.go should not be a dir")
+	}
+	if goEntry.Ext != "code" {
+		t.Errorf("expected ext=code, got %q", goEntry.Ext)
+	}
+	if goEntry.RawExt != "go" {
+		t.Errorf("expected raw_ext=go, got %q", goEntry.RawExt)
+	}
+	if goEntry.SizeBytes != 12 {
+		t.Errorf("expected size_bytes 12, got %d", goEntry.SizeBytes)
+	}
+
+	totalSize := int64(len("hello") + len("package main"))
+	if resp.TotalSizeBytes != totalSize {
+		t.Errorf("expected total_size_bytes %d, got %d", totalSize, resp.TotalSizeBytes)
+	}
+}
+
+func TestRenderListingJSONViaAccept(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("x"), 0644)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept", "application/json")
+	w := httptest.NewRecorder()
+	renderListing(w, req, dir, "/", false)
+
+	if ct := w.Header().Get("Content-Type"); ct != "application/json; charset=utf-8" {
+		t.Errorf("Accept: application/json should yield JSON, got %s", ct)
+	}
+}
+
+func TestRenderListingJSONHidesDotFiles(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "visible.txt"), []byte("x"), 0644)
+	os.WriteFile(filepath.Join(dir, ".secret"), []byte("y"), 0644)
+
+	req := httptest.NewRequest("GET", "/?format=json", nil)
+	w := httptest.NewRecorder()
+	renderListing(w, req, dir, "/", true)
+
+	var resp listingJSONResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode JSON: %v", err)
+	}
+	for _, e := range resp.Entries {
+		if strings.HasPrefix(e.Name, ".") {
+			t.Errorf("dot file %q should be hidden", e.Name)
+		}
+	}
+	if len(resp.Entries) != 1 {
+		t.Errorf("expected 1 visible entry, got %d", len(resp.Entries))
+	}
+}
+
+func TestRenderListingJSONInvalidDir(t *testing.T) {
+	req := httptest.NewRequest("GET", "/?format=json", nil)
+	w := httptest.NewRecorder()
+	renderListing(w, req, "/nonexistent/path/xyz", "/", false)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 for invalid dir, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json; charset=utf-8" {
+		t.Errorf("error response should be JSON, got %s", ct)
+	}
+	if !strings.Contains(w.Body.String(), "error") {
+		t.Error("JSON error response should contain an error field")
 	}
 }
 

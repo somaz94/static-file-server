@@ -139,6 +139,21 @@ func TestListingAndIndexHandler(t *testing.T) {
 	if !containsAll(w.Body.String(), "file.txt") {
 		t.Error("listing should contain file.txt")
 	}
+
+	// Root with index.html, but ?format=json bypasses index.html → JSON listing.
+	req = httptest.NewRequest("GET", "/?format=json", nil)
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json; charset=utf-8" {
+		t.Errorf("expected JSON listing to bypass index.html, got content type %s", ct)
+	}
+	if body := w.Body.String(); strings.Contains(body, "<html>index</html>") {
+		t.Error("JSON request should not return index.html content")
+	}
 }
 
 func TestWithCORS(t *testing.T) {

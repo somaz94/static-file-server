@@ -131,8 +131,10 @@ func safePath(folder, absFolder, urlPath string) (string, error) {
 		return "", err
 	}
 
-	// Ensure the resolved path is within the folder root.
-	if !strings.HasPrefix(absPath, absFolder) {
+	// Ensure the resolved path is within the folder root. The separator guard
+	// prevents a sibling like /webfoo from matching the /web root via a bare
+	// prefix check (consistent with the batch download validation).
+	if absPath != absFolder && !strings.HasPrefix(absPath, absFolder+string(filepath.Separator)) {
 		return "", fmt.Errorf("path traversal attempt: %s", urlPath)
 	}
 
@@ -244,6 +246,11 @@ func listingAndIndex(folder string, hideDot bool) http.HandlerFunc {
 		}
 
 		if info.IsDir() {
+			// A JSON listing request bypasses index.html and returns the listing.
+			if wantsJSON(r) {
+				renderListing(w, r, fpath, r.URL.Path, hideDot)
+				return
+			}
 			indexPath := filepath.Join(fpath, "index.html")
 			if _, err := os.Stat(indexPath); err == nil {
 				http.ServeFile(w, r, indexPath)

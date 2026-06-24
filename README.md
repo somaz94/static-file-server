@@ -34,6 +34,7 @@ A lightweight, zero-dependency static file server written in Go with a modern di
 
 **Server Features:**
 - Four serving modes (basic / index / listing / both) + [SPA mode](docs/configuration.md#spa-mode)
+- [JSON listing API](docs/configuration.md#json-listing-api) (`?format=json` or `Accept: application/json`)
 - Gzip compression (auto-skips binary files and Range requests)
 - [CORS & custom headers](docs/cors-and-headers.md) / TLS/HTTPS / access control
 - Prometheus metrics (`/metrics`) / JSON logging / `/healthz` health check

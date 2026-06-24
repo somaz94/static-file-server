@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -88,6 +89,83 @@ func TestIntegration_ListingAndIndex(t *testing.T) {
 	}
 	if !strings.Contains(string(body), "icon-dir") {
 		t.Error("listing should contain directory icon classes")
+	}
+}
+
+func TestIntegration_JSONListing(t *testing.T) {
+	dir := setupIntegrationDir(t)
+	cfg := config.Default()
+	cfg.Folder = dir
+	cfg.AllowIndex = true
+	cfg.ShowListing = true
+
+	h := handler.Build(cfg)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	type jsonEntry struct {
+		Name      string `json:"name"`
+		IsDir     bool   `json:"is_dir"`
+		SizeBytes int64  `json:"size_bytes"`
+		RawExt    string `json:"raw_ext"`
+	}
+	type jsonListing struct {
+		Path       string      `json:"path"`
+		Entries    []jsonEntry `json:"entries"`
+		TotalFiles int         `json:"total_files"`
+		TotalDirs  int         `json:"total_dirs"`
+	}
+
+	// Root has index.html, but ?format=json must bypass it and return the listing.
+	resp, err := http.Get(srv.URL + "/?format=json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	if ct := resp.Header.Get("Content-Type"); ct != "application/json; charset=utf-8" {
+		t.Errorf("expected JSON content type, got %s", ct)
+	}
+
+	var listing jsonListing
+	if err := json.Unmarshal(body, &listing); err != nil {
+		t.Fatalf("failed to decode JSON listing: %v\nbody: %s", err, body)
+	}
+	if listing.Path != "/" {
+		t.Errorf("expected path /, got %q", listing.Path)
+	}
+	if listing.TotalDirs != 2 { // docs/, assets/
+		t.Errorf("expected 2 dirs, got %d", listing.TotalDirs)
+	}
+
+	names := make(map[string]jsonEntry, len(listing.Entries))
+	for _, e := range listing.Entries {
+		names[e.Name] = e
+	}
+	if e, ok := names["config.yaml"]; !ok {
+		t.Error("listing should contain config.yaml")
+	} else if e.RawExt != "yaml" || e.IsDir {
+		t.Errorf("config.yaml entry incorrect: %+v", e)
+	}
+	if _, ok := names["docs"]; !ok {
+		t.Error("listing should contain docs directory")
+	}
+
+	// Accept header negotiation should also yield JSON.
+	req, _ := http.NewRequest("GET", srv.URL+"/assets/", nil)
+	req.Header.Set("Accept", "application/json")
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); ct != "application/json; charset=utf-8" {
+		t.Errorf("Accept: application/json should yield JSON, got %s", ct)
+	}
+	if !strings.Contains(string(body), `"images"`) {
+		t.Errorf("assets JSON listing should contain images dir, got %s", body)
 	}
 }
 

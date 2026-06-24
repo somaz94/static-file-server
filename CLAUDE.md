@@ -114,6 +114,13 @@ make pr title="..."   # Test + push + create PR
 - Version display in footer
 - Responsive design (mobile-friendly)
 
+## JSON Listing API
+
+- Directory listings can be returned as JSON via `?format=json` query or `Accept: application/json` header
+- A JSON request bypasses `index.html` (returns the listing even when an index page exists)
+- Honors `HIDE_DOT_FILES`; entries sorted directories-first then alphabetically (same as HTML)
+- Response: `{ path, entries[], total_files, total_dirs, total_size, total_size_bytes }`
+
 ## Health Check
 
 - `/healthz` endpoint returns `200 OK` with body `ok`

@@ -37,15 +37,16 @@ var listingTmpl = template.Must(
 
 // ListingData holds the data passed to the directory listing template.
 type ListingData struct {
-	Path        string
-	Breadcrumbs []Breadcrumb
-	HasParent   bool
-	ParentPath  string
-	Entries     []ListingEntry
-	Version     string
-	TotalFiles  int
-	TotalDirs   int
-	TotalSize   string
+	Path           string
+	Breadcrumbs    []Breadcrumb
+	HasParent      bool
+	ParentPath     string
+	Entries        []ListingEntry
+	Version        string
+	TotalFiles     int
+	TotalDirs      int
+	TotalSize      string
+	TotalSizeBytes int64
 }
 
 // Breadcrumb represents a single breadcrumb navigation element.
@@ -102,12 +103,12 @@ func fileCategory(name string) string {
 	}
 }
 
-// renderListing reads a directory and renders the HTML listing template.
-func renderListing(w http.ResponseWriter, _ *http.Request, fsPath, urlPath string, hideDot bool) {
+// buildListingData reads a directory and assembles the listing data model
+// shared by the HTML and JSON renderers.
+func buildListingData(fsPath, urlPath string, hideDot bool) (ListingData, error) {
 	entries, err := os.ReadDir(fsPath)
 	if err != nil {
-		http.Error(w, "Failed to read directory", http.StatusInternalServerError)
-		return
+		return ListingData{}, err
 	}
 
 	// Normalize URL path.
@@ -190,7 +191,35 @@ func renderListing(w http.ResponseWriter, _ *http.Request, fsPath, urlPath strin
 			totalSize += e.SizeBytes
 		}
 	}
+	data.TotalSizeBytes = totalSize
 	data.TotalSize = formatSize(totalSize)
+
+	return data, nil
+}
+
+// wantsJSON reports whether the client prefers a JSON listing response,
+// signaled by either a ?format=json query parameter or an Accept header that
+// explicitly lists application/json.
+func wantsJSON(r *http.Request) bool {
+	if r.URL.Query().Get("format") == "json" {
+		return true
+	}
+	return strings.Contains(r.Header.Get("Accept"), "application/json")
+}
+
+// renderListing reads a directory and renders it as HTML, or as JSON when the
+// client requests it via ?format=json or an application/json Accept header.
+func renderListing(w http.ResponseWriter, r *http.Request, fsPath, urlPath string, hideDot bool) {
+	if wantsJSON(r) {
+		renderListingJSON(w, fsPath, urlPath, hideDot)
+		return
+	}
+
+	data, err := buildListingData(fsPath, urlPath, hideDot)
+	if err != nil {
+		http.Error(w, "Failed to read directory", http.StatusInternalServerError)
+		return
+	}
 
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
@@ -202,6 +231,61 @@ func renderListing(w http.ResponseWriter, _ *http.Request, fsPath, urlPath strin
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	buf.WriteTo(w)
+}
+
+// listingJSONEntry is a single file or directory in a JSON listing response.
+type listingJSONEntry struct {
+	Name        string `json:"name"`
+	Href        string `json:"href"`
+	IsDir       bool   `json:"is_dir"`
+	Size        string `json:"size"`
+	SizeBytes   int64  `json:"size_bytes"`
+	ModTime     string `json:"mod_time"`
+	ModTimeUnix int64  `json:"mod_time_unix"`
+	Ext         string `json:"ext,omitempty"`
+	RawExt      string `json:"raw_ext,omitempty"`
+}
+
+// listingJSONResponse is the top-level JSON listing payload.
+type listingJSONResponse struct {
+	Path           string             `json:"path"`
+	Entries        []listingJSONEntry `json:"entries"`
+	TotalFiles     int                `json:"total_files"`
+	TotalDirs      int                `json:"total_dirs"`
+	TotalSize      string             `json:"total_size"`
+	TotalSizeBytes int64              `json:"total_size_bytes"`
+}
+
+// renderListingJSON renders a directory listing as JSON.
+func renderListingJSON(w http.ResponseWriter, fsPath, urlPath string, hideDot bool) {
+	data, err := buildListingData(fsPath, urlPath, hideDot)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintln(w, `{"error":"Failed to read directory"}`)
+		return
+	}
+
+	resp := listingJSONResponse{
+		Path:           data.Path,
+		Entries:        make([]listingJSONEntry, 0, len(data.Entries)),
+		TotalFiles:     data.TotalFiles,
+		TotalDirs:      data.TotalDirs,
+		TotalSize:      data.TotalSize,
+		TotalSizeBytes: data.TotalSizeBytes,
+	}
+	// ListingEntry and listingJSONEntry share an identical field layout
+	// (only struct tags differ), so a direct conversion is safe.
+	for _, e := range data.Entries {
+		resp.Entries = append(resp.Entries, listingJSONEntry(e))
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(resp); err != nil {
+		return
+	}
 }
 
 // buildBreadcrumbs generates navigation breadcrumbs from a URL path.
@@ -230,9 +314,9 @@ type batchDownloadRequest struct {
 }
 
 const (
-	maxBatchFiles       = 100
-	maxBatchSize        = 500 << 20 // 500 MB
-	maxConcurrentBatch  = 5
+	maxBatchFiles      = 100
+	maxBatchSize       = 500 << 20 // 500 MB
+	maxConcurrentBatch = 5
 )
 
 // batchSem limits the number of concurrent batch download operations.
