@@ -2,7 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased (2026-06-23)
+## [v0.6.0](https://github.com/somaz94/static-file-server/compare/v0.5.1...v0.6.0) (2026-06-24)
+
+### Features
+
+- add JSON directory listing API ([671a1fc](https://github.com/somaz94/static-file-server/commit/671a1fc073c56fcba56ed0513baa5536eb6f0c47))
 
 ### Builds
 
@@ -12,6 +16,10 @@ All notable changes to this project will be documented in this file.
 
 - add DCO check via shared reusable workflow ([2ef777b](https://github.com/somaz94/static-file-server/commit/2ef777bc2a9b1b0cf5a6a87119cf043b5b6927d0))
 - add concurrency guards to recurring workflows ([fce3e39](https://github.com/somaz94/static-file-server/commit/fce3e39688e77312adb87260849fbcef63bfaa0d))
+
+### Chores
+
+- bump version to v0.6.0 ([10423cd](https://github.com/somaz94/static-file-server/commit/10423cd50f48fd48f2169a751b09d0890ac5268a))
 
 ### Contributors
 
