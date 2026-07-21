@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased (2026-07-21)
+
+### Bug Fixes
+
+- warn when bump-version.sh finds no version to replace ([64ad53f](https://github.com/somaz94/static-file-server/commit/64ad53ff369f68bebb9e0750b09d82e226187e78))
+
+### Documentation
+
+- use RFC 5737 example IP in JSON log sample ([f61584d](https://github.com/somaz94/static-file-server/commit/f61584de36c653b036f8d8fcc4dc4f2c45292472))
+
+### Builds
+
+- **deps:** bump actions/setup-go from 6 to 7 (#11) ([#11](https://github.com/somaz94/static-file-server/pull/11)) ([51d7675](https://github.com/somaz94/static-file-server/commit/51d76758de4bc536626d94b1d9ab37892031a274))
+
+### Continuous Integration
+
+- remove DCO workflow ([b87f47a](https://github.com/somaz94/static-file-server/commit/b87f47a207cb8b03953da33c510efdc8df779576))
+- adopt semantic-pr, labels, lock-threads, PR size, and auto-assign reusables ([e4ee56d](https://github.com/somaz94/static-file-server/commit/e4ee56d3c6620e2337304a57353c2a6a4dcfef2e))
+- use reusable stale-issues workflow ([94018ce](https://github.com/somaz94/static-file-server/commit/94018cebe43cd7c970b7ec8699012f8c9757bb31))
+- use reusable issue-greeting workflow ([25c4a87](https://github.com/somaz94/static-file-server/commit/25c4a878f3beb73320d9f7dcdc7a8c9a0bcf5ebf))
+- use reusable dependabot-auto-merge workflow ([325a5f8](https://github.com/somaz94/static-file-server/commit/325a5f80958b3e1ac11a99ea80c2ab11c2cabb32))
+- use reusable contributors workflow ([7b360e6](https://github.com/somaz94/static-file-server/commit/7b360e6acf11732b89b8158a1e2b6787e35bab06))
+- add ok-to-test workflow stub ([fb25540](https://github.com/somaz94/static-file-server/commit/fb255401e702a7c43339952ed7c27668776ddb24))
+- add PR welcome workflow stub ([e4195de](https://github.com/somaz94/static-file-server/commit/e4195de4a705ec216f04960b2647f1d894152b0d))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.6.0](https://github.com/somaz94/static-file-server/compare/v0.5.1...v0.6.0) (2026-06-24)
 
 ### Features
