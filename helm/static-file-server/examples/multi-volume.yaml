@@ -27,7 +27,7 @@ persistentVolumes:
       reclaimPolicy: Retain
       storageClassName: nfs-client         # <-- Replace
       nfs:
-        server: "10.10.10.5"              # <-- Replace
+        server: "203.0.113.5"             # <-- Replace
         path: "/volume1/web"              # <-- Replace
 
 persistentVolumeClaims:

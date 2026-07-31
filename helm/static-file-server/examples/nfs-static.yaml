@@ -62,7 +62,7 @@ persistentVolumes:
       reclaimPolicy: Retain
       storageClassName: nfs-client         # <-- Replace
       nfs:
-        server: "10.10.10.5"              # <-- Replace with NFS server IP
+        server: "203.0.113.5"             # <-- Replace with NFS server IP
         path: "/volume1/nfs"              # <-- Replace with NFS export path
 
 persistentVolumeClaims:

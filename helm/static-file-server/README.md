@@ -160,7 +160,7 @@ persistentVolumes:
       accessModes: [ReadWriteMany]
       storageClassName: nfs-client
       nfs:
-        server: 10.10.10.5
+        server: 203.0.113.5
         path: /volume1/nfs
 
 persistentVolumeClaims:
