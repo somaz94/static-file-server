@@ -230,7 +230,8 @@ func renderListing(w http.ResponseWriter, r *http.Request, fsPath, urlPath strin
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	buf.WriteTo(w)
+	// The listing is best-effort once the header is written.
+	_, _ = buf.WriteTo(w)
 }
 
 // listingJSONEntry is a single file or directory in a JSON listing response.
@@ -408,7 +409,9 @@ func handleBatchDownload(w http.ResponseWriter, r *http.Request, fsPath string, 
 	w.Header().Set("Content-Disposition", `attachment; filename="download.zip"`)
 
 	zw := zip.NewWriter(w)
-	defer zw.Close()
+	// A close failure truncates the stream the client is already receiving;
+	// there is no status left to change.
+	defer func() { _ = zw.Close() }()
 
 	for _, vf := range files {
 		fw, err := zw.Create(vf.name)
@@ -421,7 +424,7 @@ func handleBatchDownload(w http.ResponseWriter, r *http.Request, fsPath string, 
 			return
 		}
 		_, copyErr := io.Copy(fw, f)
-		f.Close()
+		_ = f.Close()
 		if copyErr != nil {
 			return
 		}

@@ -43,7 +43,8 @@ func (g *gzipResponseWriter) Write(b []byte) (int, error) {
 
 // Flush implements http.Flusher by flushing the gzip writer and the underlying ResponseWriter.
 func (g *gzipResponseWriter) Flush() {
-	g.writer.Flush()
+	// The response is already in flight; a failed flush cannot be signalled.
+	_ = g.writer.Flush()
 	if f, ok := g.ResponseWriter.(http.Flusher); ok {
 		f.Flush()
 	}
@@ -82,6 +83,7 @@ func withCompression(next http.Handler) http.Handler {
 
 		grw := &gzipResponseWriter{ResponseWriter: w, writer: gz}
 		next.ServeHTTP(grw, r)
-		gz.Close()
+		// Headers went out long ago, so a failed final flush has no reply path.
+		_ = gz.Close()
 	})
 }
