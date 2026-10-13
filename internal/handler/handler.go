@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -214,6 +216,9 @@ func listing(folder string, hideDot bool) http.HandlerFunc {
 		}
 
 		if info.IsDir() {
+			if redirectToSlash(w, r) {
+				return
+			}
 			renderListing(w, r, fpath, r.URL.Path, hideDot)
 			return
 		}
@@ -246,6 +251,9 @@ func listingAndIndex(folder string, hideDot bool) http.HandlerFunc {
 		}
 
 		if info.IsDir() {
+			if redirectToSlash(w, r) {
+				return
+			}
 			// A JSON listing request bypasses index.html and returns the listing.
 			if wantsJSON(r) {
 				renderListing(w, r, fpath, r.URL.Path, hideDot)
@@ -262,6 +270,19 @@ func listingAndIndex(folder string, hideDot bool) http.HandlerFunc {
 
 		http.ServeFile(w, r, fpath)
 	}
+}
+
+// redirectToSlash sends a directory request without a trailing slash to the
+// slash form, because the listing's relative hrefs resolve against it. The
+// Location is relative so a stripped --prefix survives the redirect.
+func redirectToSlash(w http.ResponseWriter, r *http.Request) bool {
+	if strings.HasSuffix(r.URL.Path, "/") {
+		return false
+	}
+	target := url.URL{Path: path.Base(r.URL.Path) + "/", RawQuery: r.URL.RawQuery}
+	w.Header().Set("Location", target.String())
+	w.WriteHeader(http.StatusMovedPermanently)
+	return true
 }
 
 // spa serves files if they exist, otherwise falls back to /index.html.

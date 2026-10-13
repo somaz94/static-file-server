@@ -982,3 +982,25 @@ func containsAll(s string, subs ...string) bool {
 	}
 	return true
 }
+
+func TestDirectoryWithoutSlashRedirects(t *testing.T) {
+	dir := setupTestDir(t)
+	handlers := map[string]http.Handler{
+		"listing":         listing(dir, false),
+		"listingAndIndex": listingAndIndex(dir, false),
+	}
+	for name, h := range handlers {
+		t.Run(name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/subdir?sort=name", nil)
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, req)
+
+			if w.Code != http.StatusMovedPermanently {
+				t.Fatalf("expected 301, got %d", w.Code)
+			}
+			if loc := w.Header().Get("Location"); loc != "subdir/?sort=name" {
+				t.Errorf("unexpected Location %q", loc)
+			}
+		})
+	}
+}
