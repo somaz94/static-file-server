@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.6.2](https://github.com/somaz94/static-file-server/compare/v0.6.1...v0.6.2) (2026-10-13)
+
+### Chores
+
+- bump remaining version references to v0.6.2 ([c352bd5](https://github.com/somaz94/static-file-server/commit/c352bd5a7e6f9881307d1c0c29832180a5b26bc4))
+- bump version to v0.6.2 ([fc0031a](https://github.com/somaz94/static-file-server/commit/fc0031a5986ea16cc71962ec3e7e50f6b4fef7a6))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.6.1](https://github.com/somaz94/static-file-server/compare/v0.6.0...v0.6.1) (2026-10-13)
 
 ### Bug Fixes
