@@ -3,7 +3,7 @@ name: static-file-server
 description: A Helm chart for lightweight static file server with modern directory listing UI
 type: application
 version: 0.6.2
-appVersion: "v0.6.0"
+appVersion: "v0.6.2"
 
 kubeVersion: ">=1.16.0-0"
 
