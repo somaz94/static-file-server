@@ -2,22 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased (2026-07-21)
+## [v0.6.1](https://github.com/somaz94/static-file-server/compare/v0.6.0...v0.6.1) (2026-10-13)
 
 ### Bug Fixes
 
+- redirect directory requests without trailing slash ([fdb2756](https://github.com/somaz94/static-file-server/commit/fdb2756097303b095a535eb89fee1a5d082c76f8))
 - warn when bump-version.sh finds no version to replace ([64ad53f](https://github.com/somaz94/static-file-server/commit/64ad53ff369f68bebb9e0750b09d82e226187e78))
 
 ### Documentation
 
+- replace NFS server example IP with a documentation address ([2121ab2](https://github.com/somaz94/static-file-server/commit/2121ab26cd6de62362a3157d05aa81a9737de13a))
 - use RFC 5737 example IP in JSON log sample ([f61584d](https://github.com/somaz94/static-file-server/commit/f61584de36c653b036f8d8fcc4dc4f2c45292472))
 
 ### Builds
 
+- **deps:** bump golang from 1.26 to 1.27 in the docker-minor group (#12) ([#12](https://github.com/somaz94/static-file-server/pull/12)) ([3355792](https://github.com/somaz94/static-file-server/commit/3355792e7a9978cc382e286379ed348d6de099cd))
 - **deps:** bump actions/setup-go from 6 to 7 (#11) ([#11](https://github.com/somaz94/static-file-server/pull/11)) ([51d7675](https://github.com/somaz94/static-file-server/commit/51d76758de4bc536626d94b1d9ab37892031a274))
 
 ### Continuous Integration
 
+- deduplicate identical commit lines in release notes ([d850401](https://github.com/somaz94/static-file-server/commit/d8504017e8202bcc17ad5cd92a0719e98182f21a))
+- trim redundant comments in gitlab-mirror workflow ([59f10a2](https://github.com/somaz94/static-file-server/commit/59f10a22ca7c0d1885e97fda08e455c168f6e454))
+- retry mirror pushes on transient remote failures ([0d5e0a6](https://github.com/somaz94/static-file-server/commit/0d5e0a61e10605dae78501702e6f86f112f98284))
+- drop the dead issue-close trigger from changelog generation ([49f1da0](https://github.com/somaz94/static-file-server/commit/49f1da09644265936f6c2a681a753becf9a0af4f))
+- add a golangci-lint config scoped to defect-finding linters ([d8f5b99](https://github.com/somaz94/static-file-server/commit/d8f5b99478712da1d508c1700e7d7914f1aa204a))
 - remove DCO workflow ([b87f47a](https://github.com/somaz94/static-file-server/commit/b87f47a207cb8b03953da33c510efdc8df779576))
 - adopt semantic-pr, labels, lock-threads, PR size, and auto-assign reusables ([e4ee56d](https://github.com/somaz94/static-file-server/commit/e4ee56d3c6620e2337304a57353c2a6a4dcfef2e))
 - use reusable stale-issues workflow ([94018ce](https://github.com/somaz94/static-file-server/commit/94018cebe43cd7c970b7ec8699012f8c9757bb31))
@@ -26,6 +34,10 @@ All notable changes to this project will be documented in this file.
 - use reusable contributors workflow ([7b360e6](https://github.com/somaz94/static-file-server/commit/7b360e6acf11732b89b8158a1e2b6787e35bab06))
 - add ok-to-test workflow stub ([fb25540](https://github.com/somaz94/static-file-server/commit/fb255401e702a7c43339952ed7c27668776ddb24))
 - add PR welcome workflow stub ([e4195de](https://github.com/somaz94/static-file-server/commit/e4195de4a705ec216f04960b2647f1d894152b0d))
+
+### Chores
+
+- tighten golangci-lint config comments ([8d25f19](https://github.com/somaz94/static-file-server/commit/8d25f19048b489c19edf1626612ef7280352ed33))
 
 ### Contributors
 
