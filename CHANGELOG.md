@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.7.1](https://github.com/somaz94/static-file-server/compare/v0.7.0...v0.7.1) (2026-10-19)
+
+### Features
+
+- **helm:** let the chart create the runner cache PVC ([f8e280d](https://github.com/somaz94/static-file-server/commit/f8e280de639e36b3360b6d4a5356d896f7c26800))
+
+### Chores
+
+- bump version to v0.7.1 ([c186903](https://github.com/somaz94/static-file-server/commit/c186903cbc2e7ed32fab2fd368f8b0df166153c7))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.7.0](https://github.com/somaz94/static-file-server/compare/v0.6.2...v0.7.0) (2026-10-19)
 
 ### Features
