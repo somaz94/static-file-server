@@ -19,20 +19,23 @@ type Options struct {
 	SecretKey     string
 	Buckets       []string // empty = any valid bucket name
 	MaxObjectSize int64    // 0 = unlimited
+	MaxTotalSize  int64    // 0 = unlimited; enforced by the janitor, oldest objects first
 	TTL           time.Duration
 	Debug         bool
+	Metrics       bool // serve /metrics on the cache listener
 }
 
 // Server is the S3 cache HTTP handler.
 type Server struct {
-	opts  Options
-	store *store
-	now   func() time.Time
+	opts    Options
+	store   *store
+	metrics *metrics
+	now     func() time.Time
 }
 
 // New returns a Server rooted at opts.Folder.
 func New(opts Options) *Server {
-	return &Server{opts: opts, store: &store{root: opts.Folder}, now: time.Now}
+	return &Server{opts: opts, store: &store{root: opts.Folder}, metrics: newMetrics(), now: time.Now}
 }
 
 // ServeHTTP implements http.Handler.
@@ -42,10 +45,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 		return
 	}
+	if s.opts.Metrics && r.URL.Path == "/metrics" && len(r.URL.Query()) == 0 {
+		s.metrics.serve(w, s.opts.MaxTotalSize)
+		return
+	}
 
 	rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 	start := time.Now()
 	s.serve(rec, r)
+	s.metrics.recordRequest(r.Method, rec.status, rec.bytes)
 	if s.opts.Debug {
 		log.Printf("s3cache %s %s %d %s", r.Method, r.URL.Path, rec.status, time.Since(start))
 	}
@@ -127,7 +135,8 @@ func (s *Server) put(w http.ResponseWriter, r *http.Request, bucket, key string)
 		errMissingContentLength().write(w, r)
 		return
 	}
-	if s.opts.MaxObjectSize > 0 && r.ContentLength > s.opts.MaxObjectSize {
+	if (s.opts.MaxObjectSize > 0 && r.ContentLength > s.opts.MaxObjectSize) ||
+		(s.opts.MaxTotalSize > 0 && r.ContentLength > s.opts.MaxTotalSize) {
 		errEntityTooLarge().write(w, r)
 		return
 	}
@@ -136,6 +145,7 @@ func (s *Server) put(w http.ResponseWriter, r *http.Request, bucket, key string)
 	etag, err := s.store.put(bucket, key, r.Body, r.ContentLength, meta)
 	switch {
 	case err == nil:
+		s.metrics.receivedBytes.Add(r.ContentLength)
 		w.Header().Set("ETag", etag)
 		w.WriteHeader(http.StatusOK)
 	case errors.Is(err, errShortBody):
@@ -165,9 +175,16 @@ func userMeta(h http.Header) map[string]string {
 type statusRecorder struct {
 	http.ResponseWriter
 	status int
+	bytes  int64
 }
 
 func (r *statusRecorder) WriteHeader(code int) {
 	r.status = code
 	r.ResponseWriter.WriteHeader(code)
+}
+
+func (r *statusRecorder) Write(b []byte) (int, error) {
+	n, err := r.ResponseWriter.Write(b)
+	r.bytes += int64(n)
+	return n, err
 }

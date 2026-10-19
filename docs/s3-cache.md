@@ -19,7 +19,7 @@ Everything else (listing, multipart upload, `DELETE`, ACLs, header-signed reques
 - **Separate listener.** The endpoint listens on `S3_PORT` with its own handler. None of the file server's middleware (listing, access key, CORS) applies, and the file server never gains a write path.
 - **Authentication.** Every request must carry an AWS Signature Version 4 query signature (`X-Amz-Signature`) made with `S3_ACCESS_KEY` / `S3_SECRET_KEY`. Signed headers, method, path and expiry are all verified; the region in the credential scope is accepted as signed. A `HEAD` on a URL presigned for `GET` is accepted, because the runner probes that way and it reveals nothing a `GET` would not.
 - **Storage layout.** Objects live at `<S3_FOLDER>/<bucket>/<key>`. ETag, content type and user metadata live in a sidecar under `<S3_FOLDER>/.meta/`. Uploads are written to `<S3_FOLDER>/.tmp/` and renamed into place, so concurrent writers to the same key never expose a partial file.
-- **Expiry.** With `S3_TTL` set, a background sweep deletes objects whose upload time is older than the TTL, like an S3 lifecycle expiration rule, then removes empty directories. An expired cache is simply a cache miss; the next job re-uploads it.
+- **Retention.** A background janitor runs every 10 minutes (or every `S3_TTL`, if shorter). It deletes objects whose upload time is older than `S3_TTL`, like an S3 lifecycle expiration rule. Then, while the total exceeds `S3_MAX_TOTAL_SIZE`, it deletes the oldest uploads first. The runner re-uploads a cache after every successful job, so caches in use keep a recent upload time and the oldest ones are the ones nobody uses. Evicted caches are simply cache misses; the next job re-uploads them.
 
 <br/>
 
@@ -35,8 +35,11 @@ Everything else (listing, multipart upload, `DELETE`, ACLs, header-signed reques
 | `S3_BUCKETS` | string | `""` | Comma-separated bucket allowlist; empty accepts any valid bucket name |
 | `S3_TTL` | duration | `0` | Delete objects older than this (Go duration, e.g. `336h`); `0` keeps them forever |
 | `S3_MAX_OBJECT_SIZE` | int | `0` | Reject uploads larger than this many bytes; `0` means unlimited |
+| `S3_MAX_TOTAL_SIZE` | int | `0` | Total size cap in bytes; the janitor evicts oldest uploads above it; `0` means unlimited |
 
-YAML keys use the same names in kebab case: `s3-enabled`, `s3-port`, `s3-folder`, `s3-access-key`, `s3-secret-key`, `s3-buckets` (list), `s3-ttl`, `s3-max-object-size`.
+YAML keys use the same names in kebab case: `s3-enabled`, `s3-port`, `s3-folder`, `s3-access-key`, `s3-secret-key`, `s3-buckets` (list), `s3-ttl`, `s3-max-object-size`, `s3-max-total-size`.
+
+The total cap is soft: it is enforced on each janitor run, so the store can exceed it by what is uploaded within one interval. An upload larger than the cap itself is rejected immediately.
 
 When `TLS_CERT` / `TLS_KEY` are set, the endpoint serves HTTPS with the same certificate. `DEBUG=true` logs one line per request; denied requests are always logged with the reason, never with the signature.
 
@@ -54,6 +57,24 @@ Cache archives can contain build secrets. Startup fails when `S3_FOLDER` is insi
 | `/web` | `/web/cache` | any | rejected |
 
 This check compares paths, so it cannot see two mounts of the same volume. If `/cache` is a second mount of the volume served at `/web`, the cache is still reachable through the file server. Use a separate volume, or mount a dot subdirectory and set `HIDE_DOT_FILES=true`. The Helm chart refuses to render the unsafe combination.
+
+<br/>
+
+## Metrics
+
+With `METRICS=true`, the cache listener serves Prometheus metrics at `/metrics` on `S3_PORT` (no signature required, like `/healthz`). The file server's own `/metrics` on `PORT` is unchanged.
+
+| Metric | Type | Meaning |
+|---|---|---|
+| `static_file_server_s3_requests_total{method,status}` | counter | Requests; `GET` 200/206 vs 404 gives the cache hit ratio |
+| `static_file_server_s3_received_bytes_total` | counter | Bytes stored by successful uploads |
+| `static_file_server_s3_sent_bytes_total` | counter | Bytes sent in responses |
+| `static_file_server_s3_evicted_objects_total{reason}` | counter | Janitor deletions, `ttl` or `size` |
+| `static_file_server_s3_objects` | gauge | Stored objects as of the last janitor run |
+| `static_file_server_s3_stored_bytes` | gauge | Stored bytes as of the last janitor run |
+| `static_file_server_s3_max_total_bytes` | gauge | Configured `S3_MAX_TOTAL_SIZE` |
+
+A steadily rising `evicted_objects_total{reason="size"}` means the cap is too small for the working set.
 
 <br/>
 

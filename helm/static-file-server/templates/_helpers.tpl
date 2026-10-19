@@ -103,4 +103,8 @@ file server: same claim as the served content without a hidden dot subPath.
 - name: S3_MAX_OBJECT_SIZE
   value: {{ . | quote }}
 {{- end }}
+{{- with $c.maxTotalSize }}
+- name: S3_MAX_TOTAL_SIZE
+  value: {{ . | quote }}
+{{- end }}
 {{- end }}

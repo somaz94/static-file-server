@@ -23,4 +23,5 @@ s3Cache:
   buckets: runner-cache
   ttl: 336h
   maxObjectSize: "5368709120"
+  maxTotalSize: "53687091200"
   existingClaim: runner-cache     # <-- Replace: a separate ReadWriteMany claim

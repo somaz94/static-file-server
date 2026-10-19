@@ -43,6 +43,7 @@ type Config struct {
 	S3Buckets       []string      `yaml:"s3-buckets"`
 	S3TTL           time.Duration `yaml:"s3-ttl"`
 	S3MaxObjectSize int64         `yaml:"s3-max-object-size"`
+	S3MaxTotalSize  int64         `yaml:"s3-max-total-size"`
 }
 
 // Default returns a Config with default values matching halverneus behavior.
@@ -187,6 +188,11 @@ func (c *Config) loadEnv() {
 			c.S3MaxObjectSize = n
 		}
 	}
+	if v, ok := os.LookupEnv("S3_MAX_TOTAL_SIZE"); ok {
+		if n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); err == nil {
+			c.S3MaxTotalSize = n
+		}
+	}
 }
 
 // validate checks for configuration errors.
@@ -252,6 +258,8 @@ func (c *Config) validateS3() error {
 		return fmt.Errorf("S3_TTL must not be negative")
 	case c.S3MaxObjectSize < 0:
 		return fmt.Errorf("S3_MAX_OBJECT_SIZE must not be negative")
+	case c.S3MaxTotalSize < 0:
+		return fmt.Errorf("S3_MAX_TOTAL_SIZE must not be negative")
 	}
 	return c.checkS3FolderNotServed()
 }
@@ -326,6 +334,7 @@ func (c *Config) Summary() string {
 		fmt.Fprintf(&b, "  S3Buckets:    %v\n", c.S3Buckets)
 		fmt.Fprintf(&b, "  S3TTL:        %s\n", c.S3TTL)
 		fmt.Fprintf(&b, "  S3MaxObjectSize: %d\n", c.S3MaxObjectSize)
+		fmt.Fprintf(&b, "  S3MaxTotalSize:  %d\n", c.S3MaxTotalSize)
 	}
 	return b.String()
 }

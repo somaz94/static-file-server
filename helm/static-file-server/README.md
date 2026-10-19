@@ -216,6 +216,7 @@ Serves the runner's distributed cache (presigned S3 GET/HEAD/PUT) on a separate 
 | `s3Cache.buckets` | Comma-separated bucket allowlist | `""` (any) |
 | `s3Cache.ttl` | Expire objects by upload time (Go duration) | `""` (never) |
 | `s3Cache.maxObjectSize` | Max upload size in bytes | `""` (unlimited) |
+| `s3Cache.maxTotalSize` | Total size cap in bytes; oldest objects are evicted above it | `""` (unlimited) |
 | `s3Cache.existingClaim` | PVC mounted read-write at `folder` | `""` (emptyDir) |
 | `s3Cache.subPath` | Sub-path of that PVC | `""` |
 | `s3Cache.service.type` / `.port` / `.annotations` | Cache Service | `ClusterIP` / `9000` / `{}` |

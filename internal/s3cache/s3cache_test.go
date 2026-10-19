@@ -290,3 +290,59 @@ func TestValidName(t *testing.T) {
 		}
 	}
 }
+
+func TestPutRejectsObjectLargerThanTotalCap(t *testing.T) {
+	s := newTestServer(t, func(o *Options) { o.MaxTotalSize = 4 })
+	if w := putObject(t, s, "/b-1/k", []byte("12345"), nil); w.Code != http.StatusBadRequest ||
+		!strings.Contains(w.Body.String(), "EntityTooLarge") {
+		t.Fatalf("PUT over total cap: %d %s", w.Code, w.Body.String())
+	}
+	if w := putObject(t, s, "/b-1/k", []byte("1234"), nil); w.Code != http.StatusOK {
+		t.Fatalf("PUT at total cap: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestMetricsEndpoint(t *testing.T) {
+	s := newTestServer(t, func(o *Options) {
+		o.Metrics = true
+		o.MaxTotalSize = 1000
+	})
+	putObject(t, s, "/b-1/k", []byte("hello"), nil)
+	do(t, s, http.MethodGet, "/b-1/k", http.MethodGet, nil, nil)
+	do(t, s, http.MethodGet, "/b-1/missing", http.MethodGet, nil, nil)
+	s.sweep(testNow)
+
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	body := w.Body.String()
+	for _, want := range []string{
+		`static_file_server_s3_requests_total{method="PUT",status="200"} 1`,
+		`static_file_server_s3_requests_total{method="GET",status="200"} 1`,
+		`static_file_server_s3_requests_total{method="GET",status="404"} 1`,
+		"static_file_server_s3_received_bytes_total 5",
+		`static_file_server_s3_evicted_objects_total{reason="size"} 0`,
+		"static_file_server_s3_objects 1",
+		"static_file_server_s3_stored_bytes 5",
+		"static_file_server_s3_max_total_bytes 1000",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("metrics missing %q:\n%s", want, body)
+		}
+	}
+	if !strings.Contains(w.Header().Get("Content-Type"), "text/plain") {
+		t.Errorf("Content-Type %q", w.Header().Get("Content-Type"))
+	}
+	// The GET body (5 bytes) plus the 404 XML error body are counted as sent.
+	if s.metrics.sentBytes.Load() <= 5 {
+		t.Errorf("sentBytes = %d, want > 5", s.metrics.sentBytes.Load())
+	}
+}
+
+func TestMetricsDisabled(t *testing.T) {
+	s := newTestServer(t, nil)
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("/metrics with METRICS off should be an unsigned bucket request (403), got %d", w.Code)
+	}
+}

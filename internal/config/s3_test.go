@@ -138,3 +138,24 @@ func TestSummaryS3(t *testing.T) {
 		t.Error("summary should omit S3 details when disabled")
 	}
 }
+
+func TestS3MaxTotalSize(t *testing.T) {
+	t.Setenv("S3_MAX_TOTAL_SIZE", "53687091200")
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.S3MaxTotalSize != 50<<30 {
+		t.Fatalf("S3MaxTotalSize = %d", cfg.S3MaxTotalSize)
+	}
+
+	c := validS3Config(t)
+	c.S3MaxTotalSize = -1
+	if err := c.validate(); err == nil || !strings.Contains(err.Error(), "S3_MAX_TOTAL_SIZE") {
+		t.Fatalf("expected S3_MAX_TOTAL_SIZE error, got %v", err)
+	}
+	c.S3MaxTotalSize = 7
+	if !strings.Contains(c.Summary(), "S3MaxTotalSize:  7") {
+		t.Fatalf("summary missing S3MaxTotalSize:\n%s", c.Summary())
+	}
+}

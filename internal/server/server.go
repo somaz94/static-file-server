@@ -63,8 +63,10 @@ func Run(cfg *config.Config) error {
 			SecretKey:     cfg.S3SecretKey,
 			Buckets:       cfg.S3Buckets,
 			MaxObjectSize: cfg.S3MaxObjectSize,
+			MaxTotalSize:  cfg.S3MaxTotalSize,
 			TTL:           cfg.S3TTL,
 			Debug:         cfg.Debug,
+			Metrics:       cfg.Metrics,
 		})
 		go s3.RunJanitor(ctx)
 		servers = append(servers, namedServer{

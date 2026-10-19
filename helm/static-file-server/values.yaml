@@ -273,6 +273,7 @@ s3Cache:
   buckets: ""        # comma-separated allowlist; empty accepts any bucket name
   ttl: ""            # Go duration such as 336h; empty keeps objects forever
   maxObjectSize: ""  # bytes; empty means unlimited
+  maxTotalSize: ""   # bytes; oldest objects are evicted above this, empty means unlimited
   # PVC mounted read-write at folder; empty uses an emptyDir (lost on restart).
   existingClaim: ""
   subPath: ""
