@@ -1,0 +1,17 @@
+{{- if and .Values.s3Cache.enabled .Values.s3Cache.persistence.enabled (not .Values.s3Cache.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "static-file-server.fullname" . }}-s3-cache
+  labels:
+    {{- include "static-file-server.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.s3Cache.persistence.accessMode }}
+  {{- with .Values.s3Cache.persistence.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.s3Cache.persistence.size }}
+{{- end }}

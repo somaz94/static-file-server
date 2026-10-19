@@ -175,6 +175,9 @@ spec:
           {{- if .Values.s3Cache.existingClaim }}
           persistentVolumeClaim:
             claimName: {{ .Values.s3Cache.existingClaim }}
+          {{- else if .Values.s3Cache.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "static-file-server.fullname" . }}-s3-cache
           {{- else }}
           emptyDir: {}
           {{- end }}

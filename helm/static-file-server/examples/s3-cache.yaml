@@ -24,4 +24,8 @@ s3Cache:
   ttl: 336h
   maxObjectSize: "5368709120"
   maxTotalSize: "53687091200"
-  existingClaim: runner-cache     # <-- Replace: a separate ReadWriteMany claim
+  persistence:
+    enabled: true
+    storageClass: nfs-client       # <-- Replace: must not be the volume served at /web
+    accessMode: ReadWriteMany
+    size: 50Gi

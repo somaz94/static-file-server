@@ -38,8 +38,8 @@ To verify the installation:
        BucketName = "<bucket>"
        BucketLocation = "us-east-1"
        Insecure = true
-{{- if not .Values.s3Cache.existingClaim }}
-   WARNING: s3Cache.existingClaim is empty, so the cache lives in an emptyDir and is lost on restart.
+{{- if not (or .Values.s3Cache.existingClaim .Values.s3Cache.persistence.enabled) }}
+   WARNING: neither s3Cache.existingClaim nor s3Cache.persistence is set, so the cache lives in an emptyDir and is lost on restart.
 {{- end }}
 {{- end }}
 

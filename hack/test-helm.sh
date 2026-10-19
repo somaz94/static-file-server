@@ -149,7 +149,19 @@ helm template test-release "${CHART_DIR}" \
 echo "  [OK] S3 cache (shared claim, hidden subPath) render successfully"
 echo ""
 
-# 12. S3 cache guards must fail the render
+# 12. Template render (S3 cache on a chart-created PVC)
+echo "--- Template (s3 cache, chart-created PVC) ---"
+OUT=$(helm template test-release "${CHART_DIR}" \
+    --set s3Cache.enabled=true \
+    --set s3Cache.existingSecret=cache-creds \
+    --set s3Cache.persistence.enabled=true \
+    --set s3Cache.persistence.storageClass=nfs-client)
+echo "$OUT" | grep -q "name: test-release-static-file-server-s3-cache" || { echo "  [FAIL] s3 cache PVC not rendered"; exit 1; }
+echo "$OUT" | grep -q "claimName: test-release-static-file-server-s3-cache" || { echo "  [FAIL] s3 cache PVC not mounted"; exit 1; }
+echo "  [OK] S3 cache (chart-created PVC) render successfully"
+echo ""
+
+# 13. S3 cache guards must fail the render
 echo "--- Template (s3 cache guards) ---"
 if helm template test-release "${CHART_DIR}" --set s3Cache.enabled=true > /dev/null 2>&1; then
     echo "  [FAIL] s3Cache without existingSecret rendered"; exit 1
@@ -165,7 +177,7 @@ fi
 echo "  [OK] S3 cache guards reject unsafe values"
 echo ""
 
-# 13. Template render (all example files)
+# 14. Template render (all example files)
 echo "--- Template (example values) ---"
 for f in "${CHART_DIR}"/examples/*.yaml; do
     name=$(basename "$f" .yaml)
@@ -174,5 +186,5 @@ for f in "${CHART_DIR}"/examples/*.yaml; do
 done
 echo ""
 
-TOTAL=$((12 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
+TOTAL=$((13 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
 echo "==> All Helm chart tests passed! (${TOTAL} scenarios)"

@@ -274,9 +274,15 @@ s3Cache:
   ttl: ""            # Go duration such as 336h; empty keeps objects forever
   maxObjectSize: ""  # bytes; empty means unlimited
   maxTotalSize: ""   # bytes; oldest objects are evicted above this, empty means unlimited
-  # PVC mounted read-write at folder; empty uses an emptyDir (lost on restart).
+  # Writable storage at folder, in order of precedence: existingClaim, then a
+  # chart-created PVC (persistence), else an emptyDir (lost on restart).
   existingClaim: ""
   subPath: ""
+  persistence:
+    enabled: false
+    storageClass: ""
+    accessMode: ReadWriteOnce  # ReadWriteMany when replicaCount > 1
+    size: 10Gi
   service:
     type: ClusterIP
     port: 9000

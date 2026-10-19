@@ -109,7 +109,11 @@ s3Cache:
   existingSecret: runner-cache-s3   # keys: accessKey / secretKey (configurable)
   buckets: runner-cache
   ttl: 336h
-  existingClaim: runner-cache       # ReadWriteMany claim mounted at s3Cache.folder
+  persistence:                      # or existingClaim: <pvc> for a claim you manage
+    enabled: true
+    storageClass: nfs-client        # a volume the file server does not serve
+    accessMode: ReadWriteMany
+    size: 50Gi
 ```
 
 The chart adds an `s3` container port and a `<release>-s3` Service. See [examples/s3-cache.yaml](../helm/static-file-server/examples/s3-cache.yaml) and the chart README for every value.

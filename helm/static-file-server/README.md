@@ -217,7 +217,9 @@ Serves the runner's distributed cache (presigned S3 GET/HEAD/PUT) on a separate 
 | `s3Cache.ttl` | Expire objects by upload time (Go duration) | `""` (never) |
 | `s3Cache.maxObjectSize` | Max upload size in bytes | `""` (unlimited) |
 | `s3Cache.maxTotalSize` | Total size cap in bytes; oldest objects are evicted above it | `""` (unlimited) |
-| `s3Cache.existingClaim` | PVC mounted read-write at `folder` | `""` (emptyDir) |
+| `s3Cache.existingClaim` | Existing PVC mounted read-write at `folder` (takes precedence over `persistence`) | `""` |
+| `s3Cache.persistence.enabled` | Create a `<release>-s3-cache` PVC for the cache | `false` (emptyDir) |
+| `s3Cache.persistence.storageClass` / `.accessMode` / `.size` | That PVC's class, access mode and size | `""` / `ReadWriteOnce` / `10Gi` |
 | `s3Cache.subPath` | Sub-path of that PVC | `""` |
 | `s3Cache.service.type` / `.port` / `.annotations` | Cache Service | `ClusterIP` / `9000` / `{}` |
 
@@ -240,7 +242,7 @@ See the [examples/](examples/) directory for ready-to-use value files:
 | HTTPRoute (HTTP) | [httproute.yaml](examples/httproute.yaml) | Gateway API, HTTP listener only |
 | HTTPRoute (HTTPS + redirect) | [httproute-https.yaml](examples/httproute-https.yaml) | Gateway API, HTTPS + sibling HTTP→HTTPS 301 |
 | Multi-volume | [multi-volume.yaml](examples/multi-volume.yaml) | NFS + extra ConfigMap volume |
-| Runner cache | [s3-cache.yaml](examples/s3-cache.yaml) | GitLab Runner cache endpoint on a dedicated claim |
+| Runner cache | [s3-cache.yaml](examples/s3-cache.yaml) | GitLab Runner cache endpoint on a chart-created claim |
 
 <br/>
 
