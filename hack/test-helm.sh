@@ -135,7 +135,37 @@ helm template test-release "${CHART_DIR}" \
 echo "  [OK] HTTPRoute (HTTPS + redirect) render successfully"
 echo ""
 
-# 11. Template render (all example files)
+# 11. Template render (S3 cache endpoint on a hidden subPath of the served claim)
+echo "--- Template (s3 cache, shared claim) ---"
+helm template test-release "${CHART_DIR}" \
+    --set persistentVolumeClaims.enabled=true \
+    --set "persistentVolumeClaims.items[0].name=web" \
+    --set "persistentVolumeClaims.items[0].storage=5Gi" \
+    --set config.hideDotFiles=true \
+    --set s3Cache.enabled=true \
+    --set s3Cache.existingSecret=cache-creds \
+    --set s3Cache.existingClaim=web \
+    --set s3Cache.subPath=.runner-cache > /dev/null
+echo "  [OK] S3 cache (shared claim, hidden subPath) render successfully"
+echo ""
+
+# 12. S3 cache guards must fail the render
+echo "--- Template (s3 cache guards) ---"
+if helm template test-release "${CHART_DIR}" --set s3Cache.enabled=true > /dev/null 2>&1; then
+    echo "  [FAIL] s3Cache without existingSecret rendered"; exit 1
+fi
+if helm template test-release "${CHART_DIR}" \
+    --set persistentVolumeClaims.enabled=true \
+    --set "persistentVolumeClaims.items[0].name=web" \
+    --set s3Cache.enabled=true \
+    --set s3Cache.existingSecret=cache-creds \
+    --set s3Cache.existingClaim=web > /dev/null 2>&1; then
+    echo "  [FAIL] s3Cache on the served claim without a hidden subPath rendered"; exit 1
+fi
+echo "  [OK] S3 cache guards reject unsafe values"
+echo ""
+
+# 13. Template render (all example files)
 echo "--- Template (example values) ---"
 for f in "${CHART_DIR}"/examples/*.yaml; do
     name=$(basename "$f" .yaml)
@@ -144,5 +174,5 @@ for f in "${CHART_DIR}"/examples/*.yaml; do
 done
 echo ""
 
-TOTAL=$((10 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
+TOTAL=$((12 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
 echo "==> All Helm chart tests passed! (${TOTAL} scenarios)"

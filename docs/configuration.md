@@ -31,6 +31,7 @@ static-file-server supports three configuration methods. Priority (highest to lo
 | `HIDE_DOT_FILES` | bool | `false` | Hide dot files/directories (e.g. `.env`, `.git`) from serving and listings |
 | `LOG_FORMAT` | string | `text` | Log format: `text` (default) or `json` (structured logging) |
 | `METRICS` | bool | `false` | Enable Prometheus-compatible metrics at `/metrics` |
+| `S3_ENABLED` | bool | `false` | Enable the GitLab Runner cache endpoint; see [Runner Cache Endpoint](s3-cache.md) for the `S3_*` variables |
 
 Boolean values accept: `1`, `true`, `t`, `yes`, `y` (true) and `0`, `false`, `f`, `no`, `n` (false).
 

@@ -314,3 +314,80 @@ func TestGracefulShutdownTLS(t *testing.T) {
 		t.Fatal("TLS server did not shut down within 5 seconds")
 	}
 }
+
+func TestRunWithS3Cache(t *testing.T) {
+	dir := setupTestFolder(t)
+	port, s3Port := freePort(t), freePort(t)
+
+	cfg := config.Default()
+	cfg.Host = "127.0.0.1"
+	cfg.Port = port
+	cfg.Folder = dir
+	cfg.S3Enabled = true
+	cfg.S3Port = s3Port
+	cfg.S3Folder = t.TempDir()
+	cfg.S3AccessKey = "ak"
+	cfg.S3SecretKey = "sk"
+	cfg.S3TTL = time.Hour
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- Run(cfg)
+	}()
+
+	s3Addr := fmt.Sprintf("http://127.0.0.1:%d", s3Port)
+	waitForServer(t, http.DefaultClient, s3Addr+"/healthz")
+	waitForServer(t, http.DefaultClient, fmt.Sprintf("http://127.0.0.1:%d/healthz", port))
+
+	resp, err := http.Get(s3Addr + "/runner-cache/key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("unsigned S3 request: expected 403, got %d", resp.StatusCode)
+	}
+
+	syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Errorf("expected nil error from graceful shutdown, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("servers did not shut down within 5 seconds")
+	}
+}
+
+func TestRunS3PortInUse(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+
+	cfg := config.Default()
+	cfg.Host = "127.0.0.1"
+	cfg.Port = freePort(t)
+	cfg.Folder = setupTestFolder(t)
+	cfg.S3Enabled = true
+	cfg.S3Port = uint16(l.Addr().(*net.TCPAddr).Port)
+	cfg.S3Folder = t.TempDir()
+	cfg.S3AccessKey = "ak"
+	cfg.S3SecretKey = "sk"
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- Run(cfg)
+	}()
+
+	select {
+	case err := <-errCh:
+		if err == nil {
+			t.Error("expected an error when the S3 port is taken")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not fail on a taken S3 port")
+	}
+}

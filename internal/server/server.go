@@ -14,6 +14,7 @@ import (
 
 	"github.com/somaz94/static-file-server/internal/config"
 	"github.com/somaz94/static-file-server/internal/handler"
+	"github.com/somaz94/static-file-server/internal/s3cache"
 )
 
 const (
@@ -21,7 +22,16 @@ const (
 	writeTimeout = 30 * time.Second
 	idleTimeout  = 120 * time.Second
 	shutdownWait = 10 * time.Second
+
+	// Cache archives can be gigabytes, so the S3 listener bounds only the header read.
+	s3ReadHeaderTimeout = 10 * time.Second
 )
+
+// namedServer pairs a server with the label used in lifecycle logs.
+type namedServer struct {
+	srv   *http.Server
+	label string
+}
 
 // Run starts the HTTP or HTTPS server based on configuration.
 func Run(cfg *config.Config) error {
@@ -41,45 +51,89 @@ func Run(cfg *config.Config) error {
 		IdleTimeout:  idleTimeout,
 	}
 
+	servers := []namedServer{{srv: srv, label: cfg.Folder}}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if cfg.S3Enabled {
+		s3 := s3cache.New(s3cache.Options{
+			Folder:        cfg.S3Folder,
+			AccessKey:     cfg.S3AccessKey,
+			SecretKey:     cfg.S3SecretKey,
+			Buckets:       cfg.S3Buckets,
+			MaxObjectSize: cfg.S3MaxObjectSize,
+			TTL:           cfg.S3TTL,
+			Debug:         cfg.Debug,
+		})
+		go s3.RunJanitor(ctx)
+		servers = append(servers, namedServer{
+			srv: &http.Server{
+				Addr:              cfg.S3ListenAddr(),
+				Handler:           s3,
+				ReadHeaderTimeout: s3ReadHeaderTimeout,
+				IdleTimeout:       idleTimeout,
+			},
+			label: "S3 cache " + cfg.S3Folder,
+		})
+	}
+
 	if cfg.HasTLS() {
-		srv.TLSConfig = &tls.Config{
-			MinVersion: parseTLSVersion(cfg.TLSMinVers),
+		for _, s := range servers {
+			s.srv.TLSConfig = &tls.Config{
+				MinVersion: parseTLSVersion(cfg.TLSMinVers),
+			}
 		}
 	}
 
-	return listenAndServe(srv, cfg)
+	return listenAndServe(cfg, servers)
 }
 
-// listenAndServe starts the server and handles graceful shutdown on SIGTERM/SIGINT.
-func listenAndServe(srv *http.Server, cfg *config.Config) error {
-	errCh := make(chan error, 1)
+// listenAndServe starts every server and shuts all of them down gracefully on
+// SIGTERM/SIGINT, or when any one of them fails.
+func listenAndServe(cfg *config.Config, servers []namedServer) error {
+	errCh := make(chan error, len(servers))
 
-	go func() {
-		if cfg.HasTLS() {
-			fmt.Fprintf(os.Stdout, "Serving %s on HTTPS %s\n", cfg.Folder, srv.Addr)
-			errCh <- srv.ListenAndServeTLS(cfg.TLSCert, cfg.TLSKey)
-		} else {
-			fmt.Fprintf(os.Stdout, "Serving %s on HTTP %s\n", cfg.Folder, srv.Addr)
-			errCh <- srv.ListenAndServe()
-		}
-	}()
+	for _, s := range servers {
+		go func() {
+			if cfg.HasTLS() {
+				fmt.Fprintf(os.Stdout, "Serving %s on HTTPS %s\n", s.label, s.srv.Addr)
+				errCh <- s.srv.ListenAndServeTLS(cfg.TLSCert, cfg.TLSKey)
+			} else {
+				fmt.Fprintf(os.Stdout, "Serving %s on HTTP %s\n", s.label, s.srv.Addr)
+				errCh <- s.srv.ListenAndServe()
+			}
+		}()
+	}
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+	defer signal.Stop(sigCh)
 
 	select {
 	case err := <-errCh:
+		_ = shutdownAll(servers)
 		return err
 	case sig := <-sigCh:
 		fmt.Fprintf(os.Stdout, "\nReceived %s, shutting down gracefully...\n", sig)
-		ctx, cancel := context.WithTimeout(context.Background(), shutdownWait)
-		defer cancel()
-		if err := srv.Shutdown(ctx); err != nil {
+		if err := shutdownAll(servers); err != nil {
 			return fmt.Errorf("graceful shutdown failed: %w", err)
 		}
 		fmt.Fprintln(os.Stdout, "Server stopped")
 		return nil
 	}
+}
+
+func shutdownAll(servers []namedServer) error {
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownWait)
+	defer cancel()
+	var firstErr error
+	for _, s := range servers {
+		if err := s.srv.Shutdown(ctx); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 // parseTLSVersion converts a version string to a tls.Version constant.

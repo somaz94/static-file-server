@@ -5,8 +5,10 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -32,6 +34,15 @@ type Config struct {
 	HideDotFiles  bool              `yaml:"hide-dot-files"`
 	LogFormat     string            `yaml:"log-format"`
 	Metrics       bool              `yaml:"metrics"`
+
+	S3Enabled       bool          `yaml:"s3-enabled"`
+	S3Port          uint16        `yaml:"s3-port"`
+	S3Folder        string        `yaml:"s3-folder"`
+	S3AccessKey     string        `yaml:"s3-access-key"`
+	S3SecretKey     string        `yaml:"s3-secret-key"`
+	S3Buckets       []string      `yaml:"s3-buckets"`
+	S3TTL           time.Duration `yaml:"s3-ttl"`
+	S3MaxObjectSize int64         `yaml:"s3-max-object-size"`
 }
 
 // Default returns a Config with default values matching halverneus behavior.
@@ -56,6 +67,7 @@ func Default() *Config {
 		HideDotFiles:  false,
 		LogFormat:     "text",
 		Metrics:       false,
+		S3Port:        9000,
 	}
 }
 
@@ -147,6 +159,34 @@ func (c *Config) loadEnv() {
 	if v, ok := lookupEnvBool("METRICS"); ok {
 		c.Metrics = v
 	}
+	if v, ok := lookupEnvBool("S3_ENABLED"); ok {
+		c.S3Enabled = v
+	}
+	if v, ok := lookupEnvUint16("S3_PORT"); ok {
+		c.S3Port = v
+	}
+	if v, ok := os.LookupEnv("S3_FOLDER"); ok {
+		c.S3Folder = v
+	}
+	if v, ok := os.LookupEnv("S3_ACCESS_KEY"); ok {
+		c.S3AccessKey = v
+	}
+	if v, ok := os.LookupEnv("S3_SECRET_KEY"); ok {
+		c.S3SecretKey = v
+	}
+	if v, ok := os.LookupEnv("S3_BUCKETS"); ok {
+		c.S3Buckets = parseReferrers(v)
+	}
+	if v, ok := os.LookupEnv("S3_TTL"); ok {
+		if d, err := time.ParseDuration(strings.TrimSpace(v)); err == nil {
+			c.S3TTL = d
+		}
+	}
+	if v, ok := os.LookupEnv("S3_MAX_OBJECT_SIZE"); ok {
+		if n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); err == nil {
+			c.S3MaxObjectSize = n
+		}
+	}
 }
 
 // validate checks for configuration errors.
@@ -188,12 +228,68 @@ func (c *Config) validate() error {
 		return fmt.Errorf("SPA mode is incompatible with SHOW_LISTING=true")
 	}
 
+	if c.S3Enabled {
+		if err := c.validateS3(); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+// validateS3 checks the S3 cache endpoint settings.
+func (c *Config) validateS3() error {
+	switch {
+	case c.S3Port == 0:
+		return fmt.Errorf("S3_PORT must be a valid port number (1-65535)")
+	case c.S3Port == c.Port:
+		return fmt.Errorf("S3_PORT must differ from PORT")
+	case c.S3Folder == "":
+		return fmt.Errorf("S3_FOLDER is required when S3_ENABLED=true")
+	case c.S3AccessKey == "" || c.S3SecretKey == "":
+		return fmt.Errorf("S3_ACCESS_KEY and S3_SECRET_KEY are required when S3_ENABLED=true")
+	case c.S3TTL < 0:
+		return fmt.Errorf("S3_TTL must not be negative")
+	case c.S3MaxObjectSize < 0:
+		return fmt.Errorf("S3_MAX_OBJECT_SIZE must not be negative")
+	}
+	return c.checkS3FolderNotServed()
+}
+
+// checkS3FolderNotServed rejects an S3_FOLDER the file server would expose: cache
+// archives can hold build secrets. Inside FOLDER is allowed only below a dot
+// directory with HIDE_DOT_FILES=true, which blocks serving it.
+func (c *Config) checkS3FolderNotServed() error {
+	served, err := filepath.Abs(c.Folder)
+	if err != nil {
+		return fmt.Errorf("resolving FOLDER: %w", err)
+	}
+	s3, err := filepath.Abs(c.S3Folder)
+	if err != nil {
+		return fmt.Errorf("resolving S3_FOLDER: %w", err)
+	}
+	rel, err := filepath.Rel(served, s3)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return nil
+	}
+	if c.HideDotFiles {
+		for _, seg := range strings.Split(rel, string(filepath.Separator)) {
+			if strings.HasPrefix(seg, ".") && seg != "." {
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("S3_FOLDER %q is served by the file server; move it outside FOLDER or under a dot directory with HIDE_DOT_FILES=true", c.S3Folder)
 }
 
 // HasTLS returns true if TLS is configured.
 func (c *Config) HasTLS() bool {
 	return c.TLSCert != "" && c.TLSKey != ""
+}
+
+// S3ListenAddr returns the host:port listen address of the S3 cache endpoint.
+func (c *Config) S3ListenAddr() string {
+	return fmt.Sprintf("%s:%d", c.Host, c.S3Port)
 }
 
 // ListenAddr returns the host:port listen address.
@@ -223,6 +319,14 @@ func (c *Config) Summary() string {
 	fmt.Fprintf(&b, "  HideDotFiles: %t\n", c.HideDotFiles)
 	fmt.Fprintf(&b, "  LogFormat:    %s\n", c.LogFormat)
 	fmt.Fprintf(&b, "  Metrics:      %t\n", c.Metrics)
+	fmt.Fprintf(&b, "  S3Enabled:    %t\n", c.S3Enabled)
+	if c.S3Enabled {
+		fmt.Fprintf(&b, "  S3Port:       %d\n", c.S3Port)
+		fmt.Fprintf(&b, "  S3Folder:     %s\n", c.S3Folder)
+		fmt.Fprintf(&b, "  S3Buckets:    %v\n", c.S3Buckets)
+		fmt.Fprintf(&b, "  S3TTL:        %s\n", c.S3TTL)
+		fmt.Fprintf(&b, "  S3MaxObjectSize: %d\n", c.S3MaxObjectSize)
+	}
 	return b.String()
 }
 

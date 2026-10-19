@@ -202,6 +202,28 @@ extraVolumeMounts:
 
 <br/>
 
+### GitLab Runner Cache Endpoint
+
+Serves the runner's distributed cache (presigned S3 GET/HEAD/PUT) on a separate port and `<release>-s3` Service. See [docs/s3-cache.md](../../docs/s3-cache.md).
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `s3Cache.enabled` | Enable the cache endpoint | `false` |
+| `s3Cache.port` | Container port | `9000` |
+| `s3Cache.folder` | Writable object directory in the container | `/cache` |
+| `s3Cache.existingSecret` | Secret holding the credentials (required) | `""` |
+| `s3Cache.accessKeyKey` / `s3Cache.secretKeyKey` | Keys inside that Secret | `accessKey` / `secretKey` |
+| `s3Cache.buckets` | Comma-separated bucket allowlist | `""` (any) |
+| `s3Cache.ttl` | Expire objects by upload time (Go duration) | `""` (never) |
+| `s3Cache.maxObjectSize` | Max upload size in bytes | `""` (unlimited) |
+| `s3Cache.existingClaim` | PVC mounted read-write at `folder` | `""` (emptyDir) |
+| `s3Cache.subPath` | Sub-path of that PVC | `""` |
+| `s3Cache.service.type` / `.port` / `.annotations` | Cache Service | `ClusterIP` / `9000` / `{}` |
+
+If `existingClaim` is also a served content claim, the render fails unless `subPath` is a dot directory and `config.hideDotFiles` is `"true"`, so cache archives cannot leak through the file server.
+
+<br/>
+
 ## Examples
 
 See the [examples/](examples/) directory for ready-to-use value files:
@@ -217,6 +239,7 @@ See the [examples/](examples/) directory for ready-to-use value files:
 | HTTPRoute (HTTP) | [httproute.yaml](examples/httproute.yaml) | Gateway API, HTTP listener only |
 | HTTPRoute (HTTPS + redirect) | [httproute-https.yaml](examples/httproute-https.yaml) | Gateway API, HTTPS + sibling HTTP→HTTPS 301 |
 | Multi-volume | [multi-volume.yaml](examples/multi-volume.yaml) | NFS + extra ConfigMap volume |
+| Runner cache | [s3-cache.yaml](examples/s3-cache.yaml) | GitLab Runner cache endpoint on a dedicated claim |
 
 <br/>
 

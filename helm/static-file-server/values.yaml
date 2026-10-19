@@ -255,6 +255,32 @@ extraVolumeMounts: []
 #     mountPath: /extra
 #     readOnly: true
 
+# ---------------------------------------------------------------------------
+# GitLab Runner cache endpoint (S3 presigned subset), see docs/s3-cache.md.
+# Runs on its own port and Service; the file server stays read-only.
+# ---------------------------------------------------------------------------
+s3Cache:
+  enabled: false
+  port: 9000
+  # Writable directory inside the container. Must not be served by the file
+  # server: keep it outside config.folder, or below a dot directory with
+  # config.hideDotFiles=true.
+  folder: /cache
+  # Secret with the credentials the runner signs with (required when enabled).
+  existingSecret: ""
+  accessKeyKey: accessKey
+  secretKeyKey: secretKey
+  buckets: ""        # comma-separated allowlist; empty accepts any bucket name
+  ttl: ""            # Go duration such as 336h; empty keeps objects forever
+  maxObjectSize: ""  # bytes; empty means unlimited
+  # PVC mounted read-write at folder; empty uses an emptyDir (lost on restart).
+  existingClaim: ""
+  subPath: ""
+  service:
+    type: ClusterIP
+    port: 9000
+    annotations: {}
+
 nodeSelector: {}
 tolerations: []
 affinity: {}

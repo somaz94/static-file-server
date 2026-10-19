@@ -1,0 +1,4 @@
+# Reviewed entries for ~/.claude/scripts/find-sensitive.sh: <path><TAB><exact line text>.
+# AWS documentation example credentials (SigV4 presigned-URL test vector), not real keys.
+internal/s3cache/sigv4_test.go	"&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request" +
+internal/s3cache/sigv4_test.go	if e := verifyPresigned(r, http.MethodGet, "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", now); e != nil {

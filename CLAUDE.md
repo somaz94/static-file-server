@@ -11,7 +11,8 @@ Lightweight, zero-dependency static file server written in Go with modern direct
 - `internal/config/` - Configuration loading (env vars > YAML > defaults)
 - `internal/handler/` - HTTP handler middleware chain + directory listing
 - `internal/handler/templates/` - Embedded HTML template with icons, search, preview
-- `internal/server/` - HTTP/HTTPS server lifecycle
+- `internal/s3cache/` - GitLab Runner cache endpoint: SigV4 presigned GET/HEAD/PUT, filesystem store, TTL janitor
+- `internal/server/` - HTTP/HTTPS server lifecycle (file server + optional S3 cache listener)
 - `internal/version/` - Build version metadata injected via ldflags
 - `deploy/` - Kubernetes manifests (Deployment + Service) + Helmfile examples
 - `helm/static-file-server/` - Helm chart (deployment, service, ingress, PVC, configmap)
@@ -87,6 +88,13 @@ make pr title="..."   # Test + push + create PR
 | `HIDE_DOT_FILES` | bool | `false` | Hide dot files from serving and listings |
 | `LOG_FORMAT` | string | `text` | Log format: `text` or `json` |
 | `METRICS` | bool | `false` | Enable Prometheus metrics at `/metrics` (cumulative histogram with `_sum`/`_count`) |
+| `S3_ENABLED` | bool | `false` | Enable the GitLab Runner cache endpoint on a separate listener |
+| `S3_PORT` | uint16 | `9000` | Cache endpoint port (must differ from `PORT`) |
+| `S3_FOLDER` | string | `""` | Cache object directory (required; must not be served, see below) |
+| `S3_ACCESS_KEY` / `S3_SECRET_KEY` | string | `""` | SigV4 credentials the runner signs with (required) |
+| `S3_BUCKETS` | string | `""` | Comma-separated bucket allowlist (empty = any) |
+| `S3_TTL` | duration | `0` | Expire objects by upload time (`0` = never) |
+| `S3_MAX_OBJECT_SIZE` | int | `0` | Max upload bytes (`0` = unlimited) |
 
 ## Middleware Chain (outer to inner)
 
@@ -120,6 +128,17 @@ make pr title="..."   # Test + push + create PR
 - A JSON request bypasses `index.html` (returns the listing even when an index page exists)
 - Honors `HIDE_DOT_FILES`; entries sorted directories-first then alphabetically (same as HTML)
 - Response: `{ path, entries[], total_files, total_dirs, total_size, total_size_bytes }`
+
+## GitLab Runner Cache Endpoint
+
+- `internal/s3cache` serves only what the runner cache uses: SigV4 query-presigned GET (with Range), HEAD and PUT on path-style URLs. Everything else is `501`. Not a general S3 server; do not grow it into one.
+- Separate `http.Server` on `S3_PORT`, none of the file-server middleware. `HEAD` signed for `GET` is accepted on purpose (the runner's cache extractor probes that way).
+- Layout: `<S3_FOLDER>/<bucket>/<key>`, metadata sidecar in `.meta/`, uploads staged in `.tmp/` then renamed.
+- Config validation rejects an `S3_FOLDER` inside `FOLDER` unless it is under a dot directory with `HIDE_DOT_FILES=true` (cache archives can hold secrets). The Helm chart enforces the same for a shared PVC.
+- Request shapes were checked against the gitlab-runner `cache/s3`, `cache/s3v2` and `commands/helpers/cache_*` sources; re-check them there when the runner changes its cache client.
+- Docs: `docs/s3-cache.md`.
+
+<br/>
 
 ## Health Check
 

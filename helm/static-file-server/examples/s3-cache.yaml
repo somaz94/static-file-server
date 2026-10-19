@@ -1,0 +1,26 @@
+# Example: GitLab Runner cache endpoint on a dedicated NFS claim
+#
+# Create the credentials first:
+#   kubectl create secret generic runner-cache-s3 \
+#     --from-literal=accessKey=runner --from-literal=secretKey="$(openssl rand -hex 32)"
+#
+# Usage:
+#   helm install my-server ./helm/static-file-server -f helm/static-file-server/examples/s3-cache.yaml
+
+persistentVolumeClaims:
+  enabled: true
+  items:
+    - name: web-content
+      accessModes:
+        - ReadOnlyMany
+      storageClassName: nfs-client
+      storage: 5Gi
+      mountPath: /web
+
+s3Cache:
+  enabled: true
+  existingSecret: runner-cache-s3
+  buckets: runner-cache
+  ttl: 336h
+  maxObjectSize: "5368709120"
+  existingClaim: runner-cache     # <-- Replace: a separate ReadWriteMany claim

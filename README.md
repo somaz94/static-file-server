@@ -29,6 +29,7 @@ A lightweight, zero-dependency static file server written in Go with a modern di
 ![SPA Mode](https://img.shields.io/badge/SPA_Mode-purple?logo=files&logoColor=white)
 ![Gzip](https://img.shields.io/badge/Gzip_Compression-purple?logo=files&logoColor=white)
 ![Metrics](https://img.shields.io/badge/Prometheus_Metrics-purple?logo=files&logoColor=white)
+![Runner Cache](https://img.shields.io/badge/GitLab_Runner_Cache-FC6D26?logo=gitlab&logoColor=white)
 
 **Directory Listing UI** — Dark/light mode, grid/list view, file preview (image/video/audio/PDF/code), search with filter chips, batch ZIP download, keyboard navigation. See [UI Guide](docs/ui.md).
 
@@ -39,6 +40,7 @@ A lightweight, zero-dependency static file server written in Go with a modern di
 - [CORS & custom headers](docs/cors-and-headers.md) / TLS/HTTPS / access control
 - Prometheus metrics (`/metrics`) / JSON logging / `/healthz` health check
 - Dot file filtering (`.env`, `.git`, etc.)
+- [GitLab Runner cache endpoint](docs/s3-cache.md): presigned S3 GET/HEAD/PUT on a separate port, stored on the same volume
 
 <br/>
 
@@ -142,6 +144,7 @@ FOLDER=./public PORT=3000 CORS=true ./bin/static-file-server
 | `METRICS` | bool | `false` | Enable Prometheus metrics at `/metrics` |
 | `DEBUG` | bool | `false` | Enable debug logging |
 | `HIDE_DOT_FILES` | bool | `false` | Hide dot files from serving and listings |
+| `S3_ENABLED` | bool | `false` | Enable the [GitLab Runner cache endpoint](docs/s3-cache.md) (`S3_*` variables) |
 
 See [Configuration Guide](docs/configuration.md) for the full variable list (TLS, access control, custom headers, log format, etc.).
 
@@ -153,6 +156,7 @@ See [Configuration Guide](docs/configuration.md) for the full variable list (TLS
 cmd/                    # CLI entry point (Cobra-based)
 internal/config/        # Configuration loading (env > YAML > defaults)
 internal/handler/       # HTTP middleware chain + directory listing
+internal/s3cache/       # GitLab Runner cache endpoint (S3 presigned subset)
 internal/server/        # HTTP/HTTPS server lifecycle
 internal/version/       # Build version metadata (ldflags)
 deploy/                 # Kubernetes manifests + Helmfile examples (see [deploy/README.md](deploy/README.md))
@@ -191,6 +195,7 @@ See [Testing Guide](docs/test.md) for details.
 | [Deployment Guide](docs/deployment.md) | Binary, Docker, Kubernetes, Helm (with storage examples) |
 | [Deploy Examples](deploy/README.md) | Standalone K8s manifests, Helmfile configuration |
 | [CORS & Headers](docs/cors-and-headers.md) | CORS configuration and custom response headers |
+| [Runner Cache Endpoint](docs/s3-cache.md) | S3-presigned cache backend for GitLab Runner |
 | [Testing Guide](docs/test.md) | Unit tests, integration tests, Helm tests, smoke tests |
 | [Version Guide](docs/version.md) | Version management, bump process, release workflow |
 

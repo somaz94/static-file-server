@@ -39,6 +39,11 @@ spec:
             - name: http
               containerPort: {{ int .Values.config.port }}
               protocol: TCP
+            {{- if .Values.s3Cache.enabled }}
+            - name: s3
+              containerPort: {{ int .Values.s3Cache.port }}
+              protocol: TCP
+            {{- end }}
           env:
             - name: FOLDER
               value: {{ .Values.config.folder | quote }}
@@ -100,6 +105,9 @@ spec:
             - name: METRICS
               value: {{ .Values.config.metrics | quote }}
             {{- end }}
+            {{- if .Values.s3Cache.enabled }}
+            {{- include "static-file-server.s3CacheEnv" . | nindent 12 }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -133,6 +141,13 @@ spec:
               mountPath: {{ .Values.config.folder }}
               readOnly: true
             {{- end }}
+            {{- if .Values.s3Cache.enabled }}
+            - name: s3-cache
+              mountPath: {{ .Values.s3Cache.folder }}
+              {{- with .Values.s3Cache.subPath }}
+              subPath: {{ . }}
+              {{- end }}
+            {{- end }}
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -154,6 +169,15 @@ spec:
         {{- else }}
         - name: web-content
           emptyDir: {}
+        {{- end }}
+        {{- if .Values.s3Cache.enabled }}
+        - name: s3-cache
+          {{- if .Values.s3Cache.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.s3Cache.existingClaim }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
         {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}

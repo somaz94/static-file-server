@@ -27,6 +27,22 @@ To verify the installation:
 3. View logs:
    kubectl logs -l "app.kubernetes.io/name={{ include "static-file-server.name" . }}" -f
 
+{{- if .Values.s3Cache.enabled }}
+
+4. GitLab Runner cache endpoint (config.toml):
+   [runners.cache]
+     Type = "s3"
+     Shared = true
+     [runners.cache.s3]
+       ServerAddress = "{{ include "static-file-server.fullname" . }}-s3.{{ .Release.Namespace }}.svc:{{ .Values.s3Cache.service.port }}"
+       BucketName = "<bucket>"
+       BucketLocation = "us-east-1"
+       Insecure = true
+{{- if not .Values.s3Cache.existingClaim }}
+   WARNING: s3Cache.existingClaim is empty, so the cache lives in an emptyDir and is lost on restart.
+{{- end }}
+{{- end }}
+
 Version: {{ .Chart.Version }}
 AppVersion: {{ .Chart.AppVersion }}
 
