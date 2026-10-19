@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.7.0](https://github.com/somaz94/static-file-server/compare/v0.6.2...v0.7.0) (2026-10-19)
+
+### Features
+
+- add total-size eviction and Prometheus metrics to the runner cache endpoint ([271e22b](https://github.com/somaz94/static-file-server/commit/271e22befd92281df2302dd53ddc9103d2fbf710))
+- add GitLab Runner cache endpoint (S3 presigned subset) ([ecb8fb2](https://github.com/somaz94/static-file-server/commit/ecb8fb2da3f1d3b2ede91b8b0975628826281bcf))
+
+### Chores
+
+- bump version to v0.7.0 ([253e385](https://github.com/somaz94/static-file-server/commit/253e385802a93c5c998142ed37794eb77acb3816))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.6.2](https://github.com/somaz94/static-file-server/compare/v0.6.1...v0.6.2) (2026-10-13)
 
 ### Chores
