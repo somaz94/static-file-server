@@ -496,3 +496,27 @@ func TestTLSMinVersion(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadYAMLRejectsUnknownKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("port: 9090\ns3-tll: 72h\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "s3-tll") {
+		t.Fatalf("expected an unknown-key error, got %v", err)
+	}
+}
+
+func TestLoadYAMLEmptyFile(t *testing.T) {
+	for name, content := range map[string]string{"empty": "", "comments only": "# nothing here\n"} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.yaml")
+			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Load(path); err != nil {
+				t.Fatalf("should keep defaults: %v", err)
+			}
+		})
+	}
+}

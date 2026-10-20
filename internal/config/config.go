@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"maps"
 	"os"
@@ -104,11 +105,18 @@ func Load(configFile string) (*Config, error) {
 
 // loadYAML reads and applies a YAML configuration file.
 func (c *Config) loadYAML(path string) error {
-	data, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-	return yaml.Unmarshal(data, c)
+	defer func() { _ = f.Close() }()
+	dec := yaml.NewDecoder(f)
+	// A misspelled key (s3-tll) would otherwise be dropped silently, like a bad env value.
+	dec.KnownFields(true)
+	if err := dec.Decode(c); err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	return nil
 }
 
 // loadEnv overrides configuration with environment variables when set. A malformed

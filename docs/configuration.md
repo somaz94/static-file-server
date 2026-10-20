@@ -72,6 +72,8 @@ log-format: "json"
 metrics: true
 ```
 
+An unknown key (a typo such as `s3-tll`) stops the server at startup instead of being ignored.
+
 <br/>
 
 ## Serving Modes
