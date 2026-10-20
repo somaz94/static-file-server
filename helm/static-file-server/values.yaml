@@ -17,6 +17,8 @@ serviceAccount:
   create: true
   name: ""
   annotations: {}
+  # The server never calls the Kubernetes API, so no token is mounted by default.
+  automount: false
 
 podAnnotations: {}
 podLabels: {}
@@ -26,6 +28,8 @@ podSecurityContext:
   runAsUser: 65532
   runAsGroup: 65532
   fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
 
 securityContext:
   allowPrivilegeEscalation: false
@@ -156,6 +160,7 @@ resources:
     cpu: 50m
     memory: 32Mi
 
+# timeoutSeconds / failureThreshold are optional per probe; unset keeps the Kubernetes defaults (1s / 3).
 probes:
   liveness:
     enabled: true
@@ -303,3 +308,29 @@ serviceMonitor:
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# Spread replicas across nodes, e.g.
+#   - maxSkew: 1
+#     topologyKey: kubernetes.io/hostname
+#     whenUnsatisfiable: ScheduleAnyway
+# labelSelector defaults to this release's pods when omitted.
+topologySpreadConstraints: []
+
+# Deployment update strategy; empty keeps the Kubernetes default (RollingUpdate 25%/25%), except
+# with a chart-created ReadWriteOnce s3Cache claim, which gets Recreate.
+strategy: {}
+
+priorityClassName: ""
+
+# Empty keeps the Kubernetes default (30s). The server drains for at most 10s on SIGTERM.
+terminationGracePeriodSeconds: ""
+
+# Image for `helm test` (a wget against /healthz).
+tests:
+  image: busybox:1.37
+
+# Limits voluntary disruptions (node drains). Set exactly one of minAvailable / maxUnavailable.
+podDisruptionBudget:
+  enabled: false
+  minAvailable: ""
+  maxUnavailable: 1

@@ -1,4 +1,7 @@
 {{- if .Values.httproute.enabled -}}
+{{- if .Values.ingress.enabled }}
+{{- fail "enable either ingress or httproute, not both: they would route the same hosts twice" }}
+{{- end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:

@@ -1,0 +1,27 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- $min := .Values.podDisruptionBudget.minAvailable }}
+{{- $max := .Values.podDisruptionBudget.maxUnavailable }}
+{{- $hasMin := not (or (kindIs "invalid" $min) (eq (toString $min) "")) }}
+{{- $hasMax := not (or (kindIs "invalid" $max) (eq (toString $max) "")) }}
+{{- if and $hasMin (not (contains "%" (toString $min))) (ge (int $min) (int .Values.replicaCount)) }}
+{{- fail (printf "podDisruptionBudget.minAvailable=%v with replicaCount=%v blocks every node drain" $min .Values.replicaCount) }}
+{{- end }}
+{{- if and (not $hasMin) $hasMax (has (toString $max) (list "0" "0%")) }}
+{{- fail "podDisruptionBudget.maxUnavailable=0 blocks every node drain" }}
+{{- end }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "static-file-server.fullname" . }}
+  labels:
+    {{- include "static-file-server.labels" . | nindent 4 }}
+spec:
+  {{- if $hasMin }}
+  minAvailable: {{ $min }}
+  {{- else }}
+  maxUnavailable: {{ ternary $max 1 $hasMax }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "static-file-server.selectorLabels" . | nindent 6 }}
+{{- end }}

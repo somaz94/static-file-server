@@ -8,6 +8,16 @@ metadata:
 spec:
   replicas: {{ .Values.replicaCount }}
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- else }}
+  {{- /* A ReadWriteOnce claim cannot attach to a surge pod on another node, so RollingUpdate would hang. */}}
+  {{- if and .Values.s3Cache.enabled .Values.s3Cache.persistence.enabled (not .Values.s3Cache.existingClaim) (eq .Values.s3Cache.persistence.accessMode "ReadWriteOnce") }}
+  strategy:
+    type: Recreate
+  {{- end }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "static-file-server.selectorLabels" . | nindent 6 }}
@@ -28,6 +38,14 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "static-file-server.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automount | default false }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- $grace := .Values.terminationGracePeriodSeconds }}
+      {{- if not (or (kindIs "invalid" $grace) (eq (toString $grace) "")) }}
+      terminationGracePeriodSeconds: {{ int $grace }}
+      {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -127,6 +145,12 @@ spec:
               {{- end }}
             initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            {{- with .Values.probes.liveness.timeoutSeconds }}
+            timeoutSeconds: {{ . }}
+            {{- end }}
+            {{- with .Values.probes.liveness.failureThreshold }}
+            failureThreshold: {{ . }}
+            {{- end }}
           {{- end }}
           {{- if .Values.probes.readiness.enabled }}
           readinessProbe:
@@ -138,6 +162,12 @@ spec:
               {{- end }}
             initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            {{- with .Values.probes.readiness.timeoutSeconds }}
+            timeoutSeconds: {{ . }}
+            {{- end }}
+            {{- with .Values.probes.readiness.failureThreshold }}
+            failureThreshold: {{ . }}
+            {{- end }}
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
@@ -206,6 +236,19 @@ spec:
       {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      {{- $selector := dict "matchLabels" (include "static-file-server.selectorLabels" $ | fromYaml) }}
+      {{- $constraints := list }}
+      {{- range . }}
+      {{- $c := deepCopy . }}
+      {{- if not (hasKey $c "labelSelector") }}
+      {{- $_ := set $c "labelSelector" $selector }}
+      {{- end }}
+      {{- $constraints = append $constraints $c }}
+      {{- end }}
+      topologySpreadConstraints:
+        {{- toYaml $constraints | nindent 8 }}
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:

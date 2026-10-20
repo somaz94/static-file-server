@@ -11,6 +11,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CHART_DIR="${ROOT_DIR}/helm/static-file-server"
 
+# expect_fail <error text> <helm template args...>: the render must fail, and for the expected reason.
+expect_fail() {
+    local want=$1 err
+    shift
+    if err=$(helm template test-release "${CHART_DIR}" "$@" 2>&1 >/dev/null); then
+        echo "  [FAIL] rendered but should not: $*"; exit 1
+    fi
+    grep -qF -- "$want" <<<"$err" || { echo "  [FAIL] failed for the wrong reason ($*): $err"; exit 1; }
+}
+
 echo "==> Helm chart tests"
 echo ""
 
@@ -163,17 +173,13 @@ echo ""
 
 # 13. S3 cache guards must fail the render
 echo "--- Template (s3 cache guards) ---"
-if helm template test-release "${CHART_DIR}" --set s3Cache.enabled=true > /dev/null 2>&1; then
-    echo "  [FAIL] s3Cache without existingSecret rendered"; exit 1
-fi
-if helm template test-release "${CHART_DIR}" \
+expect_fail 'existingSecret is required' --set s3Cache.enabled=true
+expect_fail 'also served as content' \
     --set persistentVolumeClaims.enabled=true \
     --set "persistentVolumeClaims.items[0].name=web" \
     --set s3Cache.enabled=true \
     --set s3Cache.existingSecret=cache-creds \
-    --set s3Cache.existingClaim=web > /dev/null 2>&1; then
-    echo "  [FAIL] s3Cache on the served claim without a hidden subPath rendered"; exit 1
-fi
+    --set s3Cache.existingClaim=web
 echo "  [OK] S3 cache guards reject unsafe values"
 echo ""
 
@@ -193,45 +199,35 @@ OUT=$(helm template test-release "${CHART_DIR}" --set config.metrics=true --set 
 if grep -q -- "- port: s3" <<<"$OUT"; then
     echo "  [FAIL] s3 endpoint rendered without s3Cache"; exit 1
 fi
-if helm template test-release "${CHART_DIR}" --set serviceMonitor.enabled=true > /dev/null 2>&1; then
-    echo "  [FAIL] ServiceMonitor rendered without config.metrics"; exit 1
-fi
+expect_fail 'requires config.metrics' --set serviceMonitor.enabled=true
 echo "  [OK] ServiceMonitor render and metrics guard"
 echo ""
 
 # 15. Regression guards for chart bugs
 echo "--- Template (regression guards) ---"
 # A chart-created content PVC reused as the cache claim must be rejected.
-if helm template test-release "${CHART_DIR}" --set persistence.enabled=true \
+expect_fail 'also served as content' --set persistence.enabled=true \
     --set s3Cache.enabled=true --set s3Cache.existingSecret=c \
-    --set s3Cache.existingClaim=test-release-static-file-server-data > /dev/null 2>&1; then
-    echo "  [FAIL] cache on the chart-created content claim rendered"; exit 1
-fi
+    --set s3Cache.existingClaim=test-release-static-file-server-data
 # "./cache" is not a dot directory.
-if helm template test-release "${CHART_DIR}" --set persistentVolumeClaims.enabled=true \
+expect_fail 'also served as content' --set persistentVolumeClaims.enabled=true \
     --set "persistentVolumeClaims.items[0].name=web" --set config.hideDotFiles=true \
     --set s3Cache.enabled=true --set s3Cache.existingSecret=c --set s3Cache.existingClaim=web \
-    --set s3Cache.subPath=./cache > /dev/null 2>&1; then
-    echo "  [FAIL] subPath ./cache accepted as hidden"; exit 1
-fi
+    --set s3Cache.subPath=./cache
 # An existingClaim that persistence does not mount is not served content.
 helm template test-release "${CHART_DIR}" --set persistence.existingClaim=foo \
     --set s3Cache.enabled=true --set s3Cache.existingSecret=c --set s3Cache.existingClaim=foo > /dev/null \
     || { echo "  [FAIL] unmounted claim rejected as served"; exit 1; }
 # ReadWriteOnce cache claim shared by replicas.
-if helm template test-release "${CHART_DIR}" --set replicaCount=2 --set s3Cache.enabled=true \
-    --set s3Cache.existingSecret=c --set s3Cache.persistence.enabled=true > /dev/null 2>&1; then
-    echo "  [FAIL] RWO cache claim with 2 replicas rendered"; exit 1
-fi
+expect_fail 'cannot be shared by replicaCount' --set replicaCount=2 --set s3Cache.enabled=true \
+    --set s3Cache.existingSecret=c --set s3Cache.persistence.enabled=true
 OUT=$(helm template test-release "${CHART_DIR}" --set persistentVolumeClaims.enabled=true \
     --set "persistentVolumeClaims.items[0].name=web" --set "persistentVolumeClaims.items[0].readOnly=false")
 grep -q "readOnly: false" <<<"$OUT" || { echo "  [FAIL] readOnly: false ignored"; exit 1; }
 grep -q "targetPort: http" <<<"$OUT" || { echo "  [FAIL] Service targetPort is not the named port"; exit 1; }
 OUT=$(helm template test-release "${CHART_DIR}" --set config.tlsCert=/tls/tls.crt --set config.tlsKey=/tls/tls.key)
 [ "$(grep -c "scheme: HTTPS" <<<"$OUT")" -eq 2 ] || { echo "  [FAIL] TLS probes must use HTTPS"; exit 1; }
-if helm template test-release "${CHART_DIR}" --set httproute.enabled=true > /dev/null 2>&1; then
-    echo "  [FAIL] HTTPRoute without a parentRef name rendered"; exit 1
-fi
+expect_fail 'parentRefs[].name is required' --set httproute.enabled=true
 echo "  [OK] Regression guards hold"
 echo ""
 
@@ -244,20 +240,69 @@ if grep -q -E -- '- name: http$|name: web-content|- port: http' <<<"$OUT"; then
     echo "  [FAIL] file-server pieces rendered in cache mode"; exit 1
 fi
 [ "$(grep -c -E '^ +port: s3$' <<<"$OUT")" -eq 2 ] || { echo "  [FAIL] probes must target the s3 port"; exit 1; }
-if helm template test-release "${CHART_DIR}" --set mode=cache > /dev/null 2>&1; then
-    echo "  [FAIL] mode: cache without s3Cache rendered"; exit 1
-fi
-if helm template test-release "${CHART_DIR}" -f "${CHART_DIR}/examples/runner-cache.yaml" \
-    --set httproute.enabled=true --set "httproute.parentRefs[0].name=gw" > /dev/null 2>&1; then
-    echo "  [FAIL] mode: cache with an HTTPRoute rendered"; exit 1
-fi
-if helm template test-release "${CHART_DIR}" --set mode=bogus > /dev/null 2>&1; then
-    echo "  [FAIL] unknown mode rendered"; exit 1
-fi
+expect_fail 'requires s3Cache.enabled' --set mode=cache
+expect_fail 'serves no files' -f "${CHART_DIR}/examples/runner-cache.yaml" \
+    --set httproute.enabled=true --set "httproute.parentRefs[0].name=gw"
+expect_fail 'mode must be' --set mode=bogus
 echo "  [OK] Cache-only mode render and guards"
 echo ""
 
-# 17. Template render (all example files)
+# 17. Scheduling and hardening: PDB, topology spread, strategy, token and seccomp defaults
+echo "--- Template (scheduling and hardening) ---"
+OUT=$(helm template test-release "${CHART_DIR}" --skip-tests)
+[ "$(grep -c 'automountServiceAccountToken: false' <<<"$OUT")" -eq 2 ] || { echo "  [FAIL] token must not be mounted by default"; exit 1; }
+grep -q 'type: RuntimeDefault' <<<"$OUT" || { echo "  [FAIL] seccomp RuntimeDefault missing"; exit 1; }
+if grep -q -E 'kind: PodDisruptionBudget|topologySpreadConstraints:|^  strategy:' <<<"$OUT"; then
+    echo "  [FAIL] opt-in scheduling settings rendered by default"; exit 1
+fi
+OUT=$(helm template test-release "${CHART_DIR}" --set podDisruptionBudget.enabled=true \
+    --set-json 'topologySpreadConstraints=[{"maxSkew":1,"topologyKey":"kubernetes.io/hostname","whenUnsatisfiable":"ScheduleAnyway"}]' \
+    --set-json 'strategy={"rollingUpdate":{"maxUnavailable":0}}')
+grep -q 'kind: PodDisruptionBudget' <<<"$OUT" && grep -q 'maxUnavailable: 1' <<<"$OUT" || { echo "  [FAIL] PDB missing"; exit 1; }
+grep -q 'app.kubernetes.io/instance: test-release' <<<"$(grep -A4 'labelSelector:' <<<"$OUT")" || { echo "  [FAIL] spread must default to this release's pods"; exit 1; }
+grep -q 'maxUnavailable: 0' <<<"$OUT" || { echo "  [FAIL] strategy missing"; exit 1; }
+OUT=$(helm template test-release "${CHART_DIR}" --set replicaCount=2 --set podDisruptionBudget.enabled=true --set podDisruptionBudget.minAvailable=1)
+grep -q 'minAvailable: 1' <<<"$OUT" && ! grep -q 'maxUnavailable' <<<"$OUT" || { echo "  [FAIL] minAvailable must replace maxUnavailable"; exit 1; }
+OUT=$(helm template test-release "${CHART_DIR}" \
+    --set-json 'topologySpreadConstraints=[{"maxSkew":1,"topologyKey":"zone","whenUnsatisfiable":"DoNotSchedule","labelSelector":{"matchLabels":{"custom":"x"}}}]')
+if grep -q 'app.kubernetes.io/instance' <<<"$(grep -A4 'labelSelector:' <<<"$OUT")"; then
+    echo "  [FAIL] an explicit labelSelector must be kept as given"; exit 1
+fi
+expect_fail 'blocks every node drain' --set podDisruptionBudget.enabled=true --set podDisruptionBudget.minAvailable=1
+expect_fail 'blocks every node drain' --set podDisruptionBudget.enabled=true --set podDisruptionBudget.maxUnavailable=0
+OUT=$(helm template test-release "${CHART_DIR}" --set s3Cache.enabled=true --set s3Cache.existingSecret=c --set s3Cache.persistence.enabled=true)
+grep -q 'type: Recreate' <<<"$OUT" || { echo "  [FAIL] a ReadWriteOnce cache claim must default to Recreate"; exit 1; }
+OUT=$(helm template test-release "${CHART_DIR}" --set s3Cache.enabled=true --set s3Cache.existingSecret=c \
+    --set s3Cache.persistence.enabled=true --set-json 'strategy={"type":"RollingUpdate"}')
+grep -q 'type: RollingUpdate' <<<"$OUT" || { echo "  [FAIL] an explicit strategy must win"; exit 1; }
+grep -q 'terminationGracePeriodSeconds: 0' <<<"$(helm template test-release "${CHART_DIR}" --set terminationGracePeriodSeconds=0)" \
+    || { echo "  [FAIL] terminationGracePeriodSeconds 0 dropped"; exit 1; }
+echo "  [OK] Scheduling and hardening"
+echo ""
+
+# 18. Optional pod knobs, the ingress/httproute guard and the test hook
+echo "--- Template (pod knobs, route guard, test hook) ---"
+OUT=$(helm template test-release "${CHART_DIR}" --set priorityClassName=high \
+    --set terminationGracePeriodSeconds=60 --set probes.liveness.timeoutSeconds=2 \
+    --set probes.readiness.failureThreshold=5)
+for want in 'priorityClassName: high' 'terminationGracePeriodSeconds: 60' 'timeoutSeconds: 2' 'failureThreshold: 5'; do
+    grep -q "$want" <<<"$OUT" || { echo "  [FAIL] missing $want"; exit 1; }
+done
+OUT=$(helm template test-release "${CHART_DIR}")
+if grep -q -E 'priorityClassName|terminationGracePeriodSeconds|timeoutSeconds|failureThreshold' <<<"$OUT"; then
+    echo "  [FAIL] optional pod knobs rendered by default"; exit 1
+fi
+TEST_POD=$(helm template test-release "${CHART_DIR}" -s templates/tests/test-connection.yaml)
+grep -q 'hook-delete-policy' <<<"$TEST_POD" && grep -q '/healthz' <<<"$TEST_POD" || { echo "  [FAIL] test hook incomplete"; exit 1; }
+if grep -q 'app.kubernetes.io/name:' <<<"$TEST_POD"; then
+    echo "  [FAIL] test pod carries the Service selector labels"; exit 1
+fi
+expect_fail 'not both' --set ingress.enabled=true --set httproute.enabled=true \
+    --set "httproute.parentRefs[0].name=gw"
+echo "  [OK] Pod knobs, route guard and test hook"
+echo ""
+
+# 19. Template render (all example files)
 echo "--- Template (example values) ---"
 for f in "${CHART_DIR}"/examples/*.yaml; do
     name=$(basename "$f" .yaml)
@@ -266,5 +311,5 @@ for f in "${CHART_DIR}"/examples/*.yaml; do
 done
 echo ""
 
-TOTAL=$((16 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
+TOTAL=$((18 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
 echo "==> All Helm chart tests passed! (${TOTAL} scenarios)"

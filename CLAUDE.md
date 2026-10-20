@@ -180,7 +180,8 @@ Key features:
 - ServiceAccount, Deployment, Service, Ingress (optional)
 - PersistentVolumeClaim for file storage (optional)
 - ConfigMap-based content for small static sites (optional)
-- Security: non-root, no privilege escalation, read-only rootfs
+- Security: non-root, no privilege escalation, read-only rootfs, seccomp `RuntimeDefault`, no service account token
+- Scheduling (opt-in): PodDisruptionBudget, topologySpreadConstraints, update strategy
 - Customizable probes, resources, env vars
 - Prometheus ServiceMonitor for both listeners (optional, needs `config.metrics`)
 - Helm test (wget connectivity check)

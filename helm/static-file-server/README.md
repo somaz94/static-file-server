@@ -42,7 +42,7 @@ helm uninstall my-server
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `image.repository` | Container image repository | `somaz940/static-file-server` |
-| `image.tag` | Container image tag | `v0.4.0` |
+| `image.tag` | Container image tag | the chart `appVersion` |
 | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
 | `imagePullSecrets` | Image pull secrets | `[]` |
 
@@ -86,6 +86,10 @@ helm uninstall my-server
 | `nodeSelector` | Node selector | `{}` |
 | `tolerations` | Tolerations | `[]` |
 | `affinity` | Affinity rules | `{}` |
+| `topologySpreadConstraints` | Spread constraints; `labelSelector` defaults to this release's pods when omitted | `[]` |
+| `strategy` | Deployment update strategy | `{}`: RollingUpdate 25%/25%, or Recreate with a chart-created ReadWriteOnce `s3Cache` claim |
+| `podDisruptionBudget.enabled` | Create a PodDisruptionBudget | `false` |
+| `podDisruptionBudget.minAvailable` / `.maxUnavailable` | Set one; `minAvailable` wins when both are set. A value that blocks every drain (`minAvailable >= replicaCount`, `maxUnavailable: 0`) fails the render | `""` / `1` |
 | `extraEnv` | Extra environment variables | `[]` |
 
 <br/>
@@ -97,9 +101,11 @@ helm uninstall my-server
 | `serviceAccount.create` | Create service account | `true` |
 | `serviceAccount.name` | Service account name | `""` |
 | `serviceAccount.annotations` | Service account annotations | `{}` |
+| `serviceAccount.automount` | Mount a service account token (the server never calls the Kubernetes API) | `false` |
 | `podSecurityContext.runAsNonRoot` | Run as non-root | `true` |
 | `podSecurityContext.runAsUser` | Run as user ID | `65532` |
 | `podSecurityContext.fsGroup` | FS group ID | `65532` |
+| `podSecurityContext.seccompProfile.type` | Seccomp profile (required by PodSecurity `restricted`) | `RuntimeDefault` |
 | `securityContext.readOnlyRootFilesystem` | Read-only root filesystem | `true` |
 
 <br/>
@@ -116,6 +122,13 @@ helm uninstall my-server
 | `ingress.annotations` | Ingress annotations | `{}` |
 | `ingress.hosts` | Ingress hosts configuration | see `values.yaml` |
 | `ingress.tls` | Ingress TLS configuration | `[]` |
+| `httproute.enabled` | Enable a Gateway API HTTPRoute (not together with `ingress.enabled`; the render fails) | `false` |
+| `httproute.annotations` | HTTPRoute annotations | `{}` |
+| `httproute.parentRefs` | Gateways to attach to; `name` is required, `namespace` / `sectionName` / `port` optional | `[{name: ""}]` |
+| `httproute.hostnames` | Hostnames to match | `[]` |
+| `httproute.rules` | Rules with `matches` and optional `filters` / `timeouts`; `backendRefs[].name` / `.port` default to this release's Service | `PathPrefix /` |
+| `httproute.httpsRedirect.enabled` | Also render a sibling HTTPRoute on the HTTP listener that redirects to HTTPS | `false` |
+| `httproute.httpsRedirect.statusCode` / `.parentRefs` | Redirect status code and its listener | `301` / `[{name: ""}]` |
 
 <br/>
 
@@ -131,6 +144,11 @@ helm uninstall my-server
 | `probes.liveness.path` | Liveness probe path | `/healthz` |
 | `probes.readiness.enabled` | Enable readiness probe | `true` |
 | `probes.readiness.path` | Readiness probe path | `/healthz` |
+| `probes.{liveness,readiness}.port` / `.initialDelaySeconds` / `.periodSeconds` | Probe port and timing (port is forced to `s3` in `mode: cache`) | see `values.yaml` |
+| `probes.{liveness,readiness}.timeoutSeconds` / `.failureThreshold` | Optional; unset keeps the Kubernetes defaults | unset |
+| `priorityClassName` | Pod priority class | `""` |
+| `terminationGracePeriodSeconds` | Pod termination grace period; unset keeps the Kubernetes default | `""` |
+| `tests.image` | Image for `helm test` (wget against `/healthz`) | `busybox:1.37` |
 
 <br/>
 

@@ -5,3 +5,6 @@
 *.swp
 *.bak
 *.tmp
+*.tgz
+*.orig
+.vscode/

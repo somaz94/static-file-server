@@ -1,19 +1,38 @@
+{{- $tls := .Values.config.tlsCert -}}
 apiVersion: v1
 kind: Pod
 metadata:
   name: "{{ include "static-file-server.fullname" . }}-test-connection"
+  # Not the selector labels: a running test pod must not become a Service endpoint.
   labels:
-    {{- include "static-file-server.labels" . | nindent 4 }}
+    helm.sh/chart: {{ include "static-file-server.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: test
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
   annotations:
     "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    seccompProfile:
+      type: RuntimeDefault
   containers:
     - name: wget
-      image: busybox
+      image: {{ .Values.tests.image }}
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        readOnlyRootFilesystem: true
       command: ['wget']
       {{- if include "static-file-server.cacheOnly" . }}
-      args: ['{{ include "static-file-server.fullname" . }}-s3:{{ .Values.s3Cache.service.port }}/healthz']
+      args: ['-q', '-O', '/dev/null'{{ if $tls }}, '--no-check-certificate'{{ end }}, 'http{{ if $tls }}s{{ end }}://{{ include "static-file-server.fullname" . }}-s3:{{ .Values.s3Cache.service.port }}/healthz']
       {{- else }}
-      args: ['{{ include "static-file-server.fullname" . }}:{{ .Values.service.port }}']
+      args: ['-q', '-O', '/dev/null'{{ if $tls }}, '--no-check-certificate'{{ end }}, 'http{{ if $tls }}s{{ end }}://{{ include "static-file-server.fullname" . }}:{{ .Values.service.port }}/healthz']
       {{- end }}
   restartPolicy: Never
