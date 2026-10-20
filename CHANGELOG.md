@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.10.0](https://github.com/somaz94/static-file-server/compare/v0.9.0...v0.10.0) (2026-10-20)
+
+### Features
+
+- **helm:** require Kubernetes 1.21 for the policy/v1 PodDisruptionBudget ([56a36cf](https://github.com/somaz94/static-file-server/commit/56a36cffbb89a88598a08dc7dc75d0f5da5ddd1c))
+- **helm:** add scheduling and probe options, default to no token and seccomp RuntimeDefault, harden the test hook ([16faf66](https://github.com/somaz94/static-file-server/commit/16faf66489dd002d036e5cb01eb24fe594e7d832))
+
+### Chores
+
+- bump version to v0.10.0 ([8a776b9](https://github.com/somaz94/static-file-server/commit/8a776b9cf15a0b6e3b7fbf73a2d9edd72298f913))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.9.0](https://github.com/somaz94/static-file-server/compare/v0.8.0...v0.9.0) (2026-10-20)
 
 ### Features
