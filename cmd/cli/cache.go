@@ -4,7 +4,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/somaz94/static-file-server/internal/config"
-	"github.com/somaz94/static-file-server/internal/server"
 )
 
 var cacheCmd = &cobra.Command{
@@ -28,5 +27,5 @@ func runCache(cmd *cobra.Command, args []string) error {
 	if err := cfg.EnableCacheOnly(); err != nil {
 		return err
 	}
-	return server.Run(cfg)
+	return serve(cmd, cfg)
 }

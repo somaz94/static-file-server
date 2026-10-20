@@ -8,9 +8,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
+	"sync"
 	"time"
 
 	"github.com/somaz94/static-file-server/internal/config"
@@ -33,9 +32,10 @@ type namedServer struct {
 	label string
 }
 
-// Run starts the file server and, when enabled, the S3 cache endpoint. In cache-only
-// mode only the S3 cache endpoint starts.
-func Run(cfg *config.Config) error {
+// Run starts the file server and, when enabled, the S3 cache endpoint, and shuts them
+// down gracefully when ctx is cancelled. In cache-only mode only the S3 cache endpoint
+// starts.
+func Run(ctx context.Context, cfg *config.Config) error {
 	if cfg.Debug {
 		fmt.Fprint(os.Stdout, cfg.Summary())
 	}
@@ -55,8 +55,13 @@ func Run(cfg *config.Config) error {
 		})
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// The janitor stops on return, not on ctx, so it never sweeps a store that is still serving.
+	janitorCtx, stopJanitor := context.WithCancel(context.Background())
+	var janitor sync.WaitGroup
+	defer func() {
+		stopJanitor()
+		janitor.Wait()
+	}()
 
 	if cfg.S3Enabled {
 		s3 := s3cache.New(s3cache.Options{
@@ -70,7 +75,7 @@ func Run(cfg *config.Config) error {
 			Debug:         cfg.Debug,
 			Metrics:       cfg.Metrics,
 		})
-		go s3.RunJanitor(ctx)
+		janitor.Go(func() { s3.RunJanitor(janitorCtx) })
 		servers = append(servers, namedServer{
 			srv: &http.Server{
 				Addr:              cfg.S3ListenAddr(),
@@ -94,36 +99,34 @@ func Run(cfg *config.Config) error {
 		}
 	}
 
-	return listenAndServe(cfg, servers)
+	return listenAndServe(ctx, cfg, servers)
 }
 
-// listenAndServe starts every server and shuts all of them down gracefully on
-// SIGTERM/SIGINT, or when any one of them fails.
-func listenAndServe(cfg *config.Config, servers []namedServer) error {
+// listenAndServe starts every server and shuts all of them down gracefully when ctx is
+// cancelled, or when any one of them fails.
+func listenAndServe(ctx context.Context, cfg *config.Config, servers []namedServer) error {
 	errCh := make(chan error, len(servers))
 
 	for _, s := range servers {
 		go func() {
+			var err error
 			if cfg.HasTLS() {
 				fmt.Fprintf(os.Stdout, "Serving %s on HTTPS %s\n", s.label, s.srv.Addr)
-				errCh <- s.srv.ListenAndServeTLS(cfg.TLSCert, cfg.TLSKey)
+				err = s.srv.ListenAndServeTLS(cfg.TLSCert, cfg.TLSKey)
 			} else {
 				fmt.Fprintf(os.Stdout, "Serving %s on HTTP %s\n", s.label, s.srv.Addr)
-				errCh <- s.srv.ListenAndServe()
+				err = s.srv.ListenAndServe()
 			}
+			errCh <- fmt.Errorf("%s: %w", s.label, err)
 		}()
 	}
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
-	defer signal.Stop(sigCh)
 
 	select {
 	case err := <-errCh:
 		_ = shutdownAll(servers)
 		return err
-	case sig := <-sigCh:
-		fmt.Fprintf(os.Stdout, "\nReceived %s, shutting down gracefully...\n", sig)
+	case <-ctx.Done():
+		fmt.Fprintf(os.Stdout, "\nReceived %v, shutting down gracefully...\n", context.Cause(ctx))
 		if err := shutdownAll(servers); err != nil {
 			return fmt.Errorf("graceful shutdown failed: %w", err)
 		}
@@ -132,16 +135,21 @@ func listenAndServe(cfg *config.Config, servers []namedServer) error {
 	}
 }
 
+// shutdownAll shuts the servers down in parallel so they share one shutdownWait budget.
 func shutdownAll(servers []namedServer) error {
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownWait)
 	defer cancel()
-	var firstErr error
-	for _, s := range servers {
-		if err := s.srv.Shutdown(ctx); err != nil && firstErr == nil {
-			firstErr = err
-		}
+	errs := make([]error, len(servers))
+	var wg sync.WaitGroup
+	for i, s := range servers {
+		wg.Go(func() {
+			if err := s.srv.Shutdown(ctx); err != nil {
+				errs[i] = fmt.Errorf("%s: %w", s.label, err)
+			}
+		})
 	}
-	return firstErr
+	wg.Wait()
+	return errors.Join(errs...)
 }
 
 // parseTLSVersion converts a version string to a tls.Version constant.

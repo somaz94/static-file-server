@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -8,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -16,7 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
+	"sync"
 	"testing"
 	"time"
 
@@ -83,6 +85,30 @@ func waitForServer(t *testing.T, client *http.Client, url string) {
 	t.Fatalf("server at %s did not become ready", url)
 }
 
+// startRun runs Run in the background; the returned stop cancels it and waits for its
+// error, and also runs at test cleanup so no server outlives its test.
+func startRun(t *testing.T, cfg *config.Config) (stop func() error) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() { errCh <- Run(ctx, cfg) }()
+	var once sync.Once
+	var err error
+	stop = func() error {
+		once.Do(func() {
+			cancel()
+			select {
+			case err = <-errCh:
+			case <-time.After(5 * time.Second):
+				err = errors.New("server did not shut down within 5 seconds")
+			}
+		})
+		return err
+	}
+	t.Cleanup(func() { _ = stop() })
+	return stop
+}
+
 func TestRunHTTP(t *testing.T) {
 	dir := setupTestFolder(t)
 	port := freePort(t)
@@ -92,10 +118,7 @@ func TestRunHTTP(t *testing.T) {
 	cfg.Port = port
 	cfg.Folder = dir
 
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- Run(cfg)
-	}()
+	startRun(t, cfg)
 
 	// Wait for server to start
 	addr := fmt.Sprintf("http://127.0.0.1:%d", port)
@@ -132,9 +155,7 @@ func TestRunHTTPWithDebug(t *testing.T) {
 	cfg.Folder = dir
 	cfg.Debug = true
 
-	go func() {
-		Run(cfg)
-	}()
+	startRun(t, cfg)
 
 	addr := fmt.Sprintf("http://127.0.0.1:%d", port)
 	var resp *http.Response
@@ -212,9 +233,7 @@ func TestRunTLS(t *testing.T) {
 	cfg.TLSKey = keyPath
 	cfg.TLSMinVers = "TLS12"
 
-	go func() {
-		Run(cfg)
-	}()
+	startRun(t, cfg)
 
 	// Use a client that skips TLS verification for self-signed cert
 	client := &http.Client{
@@ -256,24 +275,13 @@ func TestGracefulShutdown(t *testing.T) {
 	cfg.Port = port
 	cfg.Folder = dir
 
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- Run(cfg)
-	}()
+	stop := startRun(t, cfg)
 
 	addr := fmt.Sprintf("http://127.0.0.1:%d", port)
 	waitForServer(t, http.DefaultClient, addr+"/healthz")
 
-	// Send SIGINT to trigger graceful shutdown
-	syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Errorf("expected nil error from graceful shutdown, got %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("server did not shut down within 5 seconds")
+	if err := stop(); err != nil {
+		t.Errorf("expected nil error from graceful shutdown, got %v", err)
 	}
 }
 
@@ -290,10 +298,7 @@ func TestGracefulShutdownTLS(t *testing.T) {
 	cfg.TLSKey = keyPath
 	cfg.TLSMinVers = "TLS12"
 
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- Run(cfg)
-	}()
+	stop := startRun(t, cfg)
 
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -304,15 +309,8 @@ func TestGracefulShutdownTLS(t *testing.T) {
 	addr := fmt.Sprintf("https://127.0.0.1:%d", port)
 	waitForServer(t, client, addr+"/healthz")
 
-	syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Errorf("expected nil error from graceful shutdown, got %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("TLS server did not shut down within 5 seconds")
+	if err := stop(); err != nil {
+		t.Errorf("expected nil error from graceful shutdown, got %v", err)
 	}
 }
 
@@ -331,10 +329,7 @@ func TestRunWithS3Cache(t *testing.T) {
 	cfg.S3SecretKey = "sk"
 	cfg.S3TTL = time.Hour
 
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- Run(cfg)
-	}()
+	stop := startRun(t, cfg)
 
 	s3Addr := fmt.Sprintf("http://127.0.0.1:%d", s3Port)
 	waitForServer(t, http.DefaultClient, s3Addr+"/healthz")
@@ -349,15 +344,8 @@ func TestRunWithS3Cache(t *testing.T) {
 		t.Errorf("unsigned S3 request: expected 403, got %d", resp.StatusCode)
 	}
 
-	syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Errorf("expected nil error from graceful shutdown, got %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("servers did not shut down within 5 seconds")
+	if err := stop(); err != nil {
+		t.Errorf("expected nil error from graceful shutdown, got %v", err)
 	}
 }
 
@@ -380,13 +368,13 @@ func TestRunS3PortInUse(t *testing.T) {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(cfg)
+		errCh <- Run(t.Context(), cfg)
 	}()
 
 	select {
 	case err := <-errCh:
-		if err == nil {
-			t.Error("expected an error when the S3 port is taken")
+		if err == nil || !strings.Contains(err.Error(), "S3 cache "+cfg.S3Folder+": ") {
+			t.Errorf("expected a labelled error when the S3 port is taken, got %v", err)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Run did not fail on a taken S3 port")
@@ -406,10 +394,7 @@ func TestRunCacheOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- Run(cfg)
-	}()
+	stop := startRun(t, cfg)
 
 	waitForServer(t, http.DefaultClient, fmt.Sprintf("http://127.0.0.1:%d/healthz", s3Port))
 	if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", cfg.Port), time.Second); err == nil {
@@ -417,21 +402,15 @@ func TestRunCacheOnly(t *testing.T) {
 		t.Error("cache-only mode must not start the file server")
 	}
 
-	syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Errorf("expected nil error from graceful shutdown, got %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("cache-only server did not shut down within 5 seconds")
+	if err := stop(); err != nil {
+		t.Errorf("expected nil error from graceful shutdown, got %v", err)
 	}
 }
 
 func TestRunNothingToServe(t *testing.T) {
 	cfg := config.Default()
 	cfg.CacheOnly = true
-	if err := Run(cfg); err == nil || !strings.Contains(err.Error(), "nothing to serve") {
+	if err := Run(t.Context(), cfg); err == nil || !strings.Contains(err.Error(), "nothing to serve") {
 		t.Fatalf("expected a nothing-to-serve error, got %v", err)
 	}
 }

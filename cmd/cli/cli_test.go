@@ -2,11 +2,14 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/somaz94/static-file-server/internal/config"
 	"github.com/somaz94/static-file-server/internal/version"
 )
 
@@ -86,5 +89,28 @@ func TestCacheSubcommandInvalidConfig(t *testing.T) {
 	rootCmd.SetArgs([]string{"cache", "--config", "/nonexistent/path/config.yaml"})
 	if err := Execute(); err == nil {
 		t.Fatal("expected an error for a missing config file")
+	}
+}
+
+func TestServeStopsWhenContextIsCancelled(t *testing.T) {
+	cfg := config.Default()
+	cfg.Host = "127.0.0.1"
+	cfg.Port = 0
+	cfg.Folder = t.TempDir()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	cmd := &cobra.Command{}
+	cmd.SetContext(ctx)
+
+	done := make(chan error, 1)
+	go func() { done <- serve(cmd, cfg) }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("serve with a cancelled context: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("serve did not return after its context was cancelled")
 	}
 }

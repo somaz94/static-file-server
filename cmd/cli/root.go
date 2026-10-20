@@ -2,6 +2,9 @@
 package cli
 
 import (
+	"os/signal"
+	"syscall"
+
 	"github.com/spf13/cobra"
 
 	"github.com/somaz94/static-file-server/internal/config"
@@ -37,5 +40,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	return server.Run(cfg)
+	return serve(cmd, cfg)
+}
+
+// serve runs the server until SIGINT or SIGTERM.
+func serve(cmd *cobra.Command, cfg *config.Config) error {
+	ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	return server.Run(ctx, cfg)
 }
