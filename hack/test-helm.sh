@@ -299,10 +299,40 @@ if grep -q 'app.kubernetes.io/name:' <<<"$TEST_POD"; then
 fi
 expect_fail 'not both' --set ingress.enabled=true --set httproute.enabled=true \
     --set "httproute.parentRefs[0].name=gw"
+TEST_POD=$(helm template test-release "${CHART_DIR}" -s templates/tests/test-connection.yaml \
+    --set "imagePullSecrets[0].name=reg" --set nodeSelector.disk=ssd --set "tolerations[0].key=dedicated")
+for want in 'name: reg' 'disk: ssd' 'key: dedicated'; do
+    grep -q "$want" <<<"$TEST_POD" || { echo "  [FAIL] test pod missing $want"; exit 1; }
+done
+OUT=$(helm template test-release "${CHART_DIR}" -s templates/deployment.yaml)
+grep -q 'enableServiceLinks: false' <<<"$OUT" || { echo "  [FAIL] service links not disabled by default"; exit 1; }
+OUT=$(helm template test-release "${CHART_DIR}" -s templates/deployment.yaml \
+    --set resources=null --set securityContext=null --set podSecurityContext=null)
+if grep -q -E '^ *(resources|securityContext):' <<<"$OUT"; then
+    echo "  [FAIL] null resources / securityContext still rendered"; exit 1
+fi
 echo "  [OK] Pod knobs, route guard and test hook"
 echo ""
 
-# 19. Template render (all example files)
+# 19. values.schema.json rejects what the server would refuse at startup.
+# Match field paths only: the validator's wording changes between Helm versions.
+echo "--- Values schema ---"
+expect_fail 'bogus' --set bogus=1
+expect_fail 'config.debug' --set config.debug=on
+expect_fail 'config.port' --set config.port=abc
+expect_fail 's3Cache.ttl' --set s3Cache.ttl=7d
+expect_fail 's3Cache.maxTotalSize' --set s3Cache.maxTotalSize=50Gi
+# Unquoted, Helm renders a large size as 5.36870912e+10, which the server rejects.
+expect_fail 's3Cache.maxTotalSize' --set s3Cache.maxTotalSize=53687091200
+expect_fail 'persistence.accessMode' --set persistence.accessMode=RWX
+expect_fail 'config.port' --set-string config.port=99999
+helm template test-release "${CHART_DIR}" --set config.debug=true --set config.port=8080 --set image.tag=20261020 \
+    --set service.targetPort=8080 --set enabled=true \
+    --set-string s3Cache.maxTotalSize=53687091200 --set s3Cache.ttl=336h > /dev/null
+echo "  [OK] Schema accepts booleans, numeric ports and quoted sizes; rejects the rest"
+echo ""
+
+# 20. Template render (all example files)
 echo "--- Template (example values) ---"
 for f in "${CHART_DIR}"/examples/*.yaml; do
     name=$(basename "$f" .yaml)
@@ -311,5 +341,5 @@ for f in "${CHART_DIR}"/examples/*.yaml; do
 done
 echo ""
 
-TOTAL=$((18 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
+TOTAL=$((19 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
 echo "==> All Helm chart tests passed! (${TOTAL} scenarios)"

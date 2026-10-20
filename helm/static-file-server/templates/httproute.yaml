@@ -14,23 +14,10 @@ metadata:
   {{- end }}
 spec:
   parentRefs:
-    {{- range .Values.httproute.parentRefs }}
-    - name: {{ required "httproute.parentRefs[].name is required" .name }}
-      {{- with .namespace }}
-      namespace: {{ . }}
-      {{- end }}
-      {{- with .sectionName }}
-      sectionName: {{ . }}
-      {{- end }}
-      {{- with .port }}
-      port: {{ . }}
-      {{- end }}
-    {{- end }}
+    {{- include "static-file-server.parentRefs" .Values.httproute.parentRefs | trim | nindent 4 }}
   {{- with .Values.httproute.hostnames }}
   hostnames:
-    {{- range . }}
-    - {{ . | quote }}
-    {{- end }}
+    {{- include "static-file-server.hostnames" . | trim | nindent 4 }}
   {{- end }}
   rules:
     {{- range .Values.httproute.rules }}
@@ -84,20 +71,10 @@ metadata:
     {{- include "static-file-server.labels" . | nindent 4 }}
 spec:
   parentRefs:
-    {{- range .Values.httproute.httpsRedirect.parentRefs }}
-    - name: {{ .name }}
-      {{- with .namespace }}
-      namespace: {{ . }}
-      {{- end }}
-      {{- with .sectionName }}
-      sectionName: {{ . }}
-      {{- end }}
-    {{- end }}
+    {{- include "static-file-server.parentRefs" .Values.httproute.httpsRedirect.parentRefs | trim | nindent 4 }}
   {{- with .Values.httproute.hostnames }}
   hostnames:
-    {{- range . }}
-    - {{ . | quote }}
-    {{- end }}
+    {{- include "static-file-server.hostnames" . | trim | nindent 4 }}
   {{- end }}
   rules:
     - filters:

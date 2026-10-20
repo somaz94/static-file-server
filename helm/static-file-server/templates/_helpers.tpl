@@ -60,6 +60,40 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
+"true" when the value is true or "true" (config.* booleans are often quoted), empty otherwise.
+*/}}
+{{- define "static-file-server.isTrue" -}}
+{{- if eq (toString .) "true" }}true{{ end }}
+{{- end }}
+
+{{/*
+HTTPRoute parentRefs entries for a list of refs.
+*/}}
+{{- define "static-file-server.parentRefs" -}}
+{{- range . }}
+- name: {{ required "parentRefs[].name is required (httproute.parentRefs or httproute.httpsRedirect.parentRefs)" .name }}
+  {{- with .namespace }}
+  namespace: {{ . }}
+  {{- end }}
+  {{- with .sectionName }}
+  sectionName: {{ . }}
+  {{- end }}
+  {{- with .port }}
+  port: {{ . }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+HTTPRoute hostnames entries for a list of hostnames.
+*/}}
+{{- define "static-file-server.hostnames" -}}
+{{- range . }}
+- {{ . | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
 "true" in cache-only mode, empty otherwise. Validates mode and the values it excludes.
 */}}
 {{- define "static-file-server.cacheOnly" -}}
@@ -110,7 +144,7 @@ when a ReadWriteOnce cache claim would be shared by several replicas.
 {{- if $c.existingClaim }}
 {{- $served := include "static-file-server.servedClaims" . | fromJsonArray -}}
 {{- /* The first subPath segment must be a dot directory: ".runner-cache", not "./cache". */ -}}
-{{- $hidden := and (eq (toString .Values.config.hideDotFiles) "true") (regexMatch "^\\.[^./]" (toString $c.subPath)) -}}
+{{- $hidden := and (include "static-file-server.isTrue" .Values.config.hideDotFiles) (regexMatch "^\\.[^./]" (toString $c.subPath)) -}}
 {{- if and (has $c.existingClaim $served) (not $hidden) }}
 {{- fail "s3Cache.existingClaim is also served as content: set s3Cache.subPath to a dot directory (e.g. .runner-cache) and config.hideDotFiles=\"true\", or use a separate claim" -}}
 {{- end }}

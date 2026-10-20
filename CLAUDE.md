@@ -185,3 +185,4 @@ Key features:
 - Customizable probes, resources, env vars
 - Prometheus ServiceMonitor for both listeners (optional, needs `config.metrics`)
 - Helm test (wget connectivity check)
+- `values.schema.json` (draft-07, closed top level): keep it in step with `values.yaml` and every `.Values` path the templates read; free-form Kubernetes fields stay open objects/arrays

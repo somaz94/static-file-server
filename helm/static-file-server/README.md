@@ -37,6 +37,8 @@ helm uninstall my-server
 
 ## Configuration
 
+`values.schema.json` validates every value at install time: unknown keys, malformed booleans, ports, durations and byte sizes fail the render instead of the pod. Byte sizes are strings (`--set-string`, or quoted in a values file). Quoted booleans must be `"true"` or `"false"`.
+
 ### Image
 
 | Parameter | Description | Default |
@@ -107,6 +109,9 @@ helm uninstall my-server
 | `podSecurityContext.fsGroup` | FS group ID | `65532` |
 | `podSecurityContext.seccompProfile.type` | Seccomp profile (required by PodSecurity `restricted`) | `RuntimeDefault` |
 | `securityContext.readOnlyRootFilesystem` | Read-only root filesystem | `true` |
+| `enableServiceLinks` | Inject `<SERVICE>_PORT` variables for the namespace's Services; a Service named `s3` would set `S3_PORT` and stop the server | `false` |
+
+Set `podSecurityContext` or `securityContext` to `null` to render none; `{}` merges with the defaults and removes nothing.
 
 <br/>
 
@@ -140,6 +145,7 @@ helm uninstall my-server
 | `resources.requests.memory` | Memory request | `32Mi` |
 | `resources.limits.cpu` | CPU limit | `200m` |
 | `resources.limits.memory` | Memory limit | `128Mi` |
+| `resources` | `null` renders no resources block; `{}` merges with the defaults above and removes nothing | see above |
 | `probes.liveness.enabled` | Enable liveness probe | `true` |
 | `probes.liveness.path` | Liveness probe path | `/healthz` |
 | `probes.readiness.enabled` | Enable readiness probe | `true` |
@@ -148,7 +154,7 @@ helm uninstall my-server
 | `probes.{liveness,readiness}.timeoutSeconds` / `.failureThreshold` | Optional; unset keeps the Kubernetes defaults | unset |
 | `priorityClassName` | Pod priority class | `""` |
 | `terminationGracePeriodSeconds` | Pod termination grace period; unset keeps the Kubernetes default | `""` |
-| `tests.image` | Image for `helm test` (wget against `/healthz`) | `busybox:1.37` |
+| `tests.image` | Image for `helm test` (wget against `/healthz`); the test pod also gets `imagePullSecrets`, `nodeSelector` and `tolerations` | `busybox:1.37` |
 
 <br/>
 
@@ -233,8 +239,8 @@ Serves the runner's distributed cache (presigned S3 GET/HEAD/PUT) on a separate 
 | `s3Cache.accessKeyKey` / `s3Cache.secretKeyKey` | Keys inside that Secret | `accessKey` / `secretKey` |
 | `s3Cache.buckets` | Comma-separated bucket allowlist | `""` (any) |
 | `s3Cache.ttl` | Expire objects neither uploaded nor read for this long (Go duration) | `""` (never) |
-| `s3Cache.maxObjectSize` | Max upload size in bytes | `""` (unlimited) |
-| `s3Cache.maxTotalSize` | Total size cap in bytes; least recently used objects are evicted above it | `""` (unlimited) |
+| `s3Cache.maxObjectSize` | Max upload size in bytes, as a string | `""` (unlimited) |
+| `s3Cache.maxTotalSize` | Total size cap in bytes, as a string; least recently used objects are evicted above it | `""` (unlimited) |
 | `s3Cache.existingClaim` | Existing PVC mounted read-write at `folder` (takes precedence over `persistence`) | `""` |
 | `s3Cache.persistence.enabled` | Create a `<release>-s3-cache` PVC for the cache | `false` (emptyDir) |
 | `s3Cache.persistence.storageClass` / `.accessMode` / `.size` | That PVC's class, access mode and size | `""` / `ReadWriteOnce` / `10Gi` |

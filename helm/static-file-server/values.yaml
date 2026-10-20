@@ -23,6 +23,10 @@ serviceAccount:
 podAnnotations: {}
 podLabels: {}
 
+# Kubernetes injects <SERVICE>_PORT variables for every Service in the namespace; a Service
+# named "s3" would set S3_PORT=tcp://..., which the server rejects at startup.
+enableServiceLinks: false
+
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 65532
@@ -152,6 +156,7 @@ httproute:
         # namespace: nginx-gateway
         # sectionName: http
 
+# Set to null to render no resources block; {} merges with these defaults and changes nothing.
 resources:
   limits:
     cpu: 200m

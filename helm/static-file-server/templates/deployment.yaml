@@ -39,6 +39,7 @@ spec:
       {{- end }}
       serviceAccountName: {{ include "static-file-server.serviceAccountName" . }}
       automountServiceAccountToken: {{ .Values.serviceAccount.automount | default false }}
+      enableServiceLinks: {{ .Values.enableServiceLinks | default false }}
       {{- with .Values.priorityClassName }}
       priorityClassName: {{ . }}
       {{- end }}
@@ -46,8 +47,10 @@ spec:
       {{- if not (or (kindIs "invalid" $grace) (eq (toString $grace) "")) }}
       terminationGracePeriodSeconds: {{ int $grace }}
       {{- end }}
+      {{- with .Values.podSecurityContext }}
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -55,8 +58,10 @@ spec:
           {{- if $cacheOnly }}
           args: ["cache"]
           {{- end }}
+          {{- with .Values.securityContext }}
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             {{- if not $cacheOnly }}
             - name: http
@@ -109,15 +114,15 @@ spec:
             - name: CUSTOM_HEADERS
               value: {{ .Values.config.customHeaders | quote }}
             {{- end }}
-            {{- if eq (.Values.config.spa | toString) "true" }}
+            {{- if include "static-file-server.isTrue" .Values.config.spa }}
             - name: SPA
               value: {{ .Values.config.spa | quote }}
             {{- end }}
-            {{- if eq (.Values.config.compression | toString) "true" }}
+            {{- if include "static-file-server.isTrue" .Values.config.compression }}
             - name: COMPRESSION
               value: {{ .Values.config.compression | quote }}
             {{- end }}
-            {{- if eq (.Values.config.hideDotFiles | toString) "true" }}
+            {{- if include "static-file-server.isTrue" .Values.config.hideDotFiles }}
             - name: HIDE_DOT_FILES
               value: {{ .Values.config.hideDotFiles | quote }}
             {{- end }}
@@ -125,7 +130,7 @@ spec:
             - name: LOG_FORMAT
               value: {{ .Values.config.logFormat | quote }}
             {{- end }}
-            {{- if eq (.Values.config.metrics | toString) "true" }}
+            {{- if include "static-file-server.isTrue" .Values.config.metrics }}
             - name: METRICS
               value: {{ .Values.config.metrics | quote }}
             {{- end }}
@@ -169,8 +174,10 @@ spec:
             failureThreshold: {{ . }}
             {{- end }}
           {{- end }}
+          {{- with .Values.resources }}
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           volumeMounts:
             {{- if $cacheOnly }}
             {{- else if .Values.persistentVolumeClaims.enabled }}
