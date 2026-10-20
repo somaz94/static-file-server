@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.8.0](https://github.com/somaz94/static-file-server/compare/v0.7.2...v0.8.0) (2026-10-20)
+
+### Features
+
+- **helm:** add an optional ServiceMonitor for both listeners ([e35c63a](https://github.com/somaz94/static-file-server/commit/e35c63a132664940c53a41b42af034be6177e893))
+
+### Chores
+
+- bump version to v0.8.0 ([f8ac510](https://github.com/somaz94/static-file-server/commit/f8ac51000900c3f59b2342b12462de0b6ae1ab16))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.7.2](https://github.com/somaz94/static-file-server/compare/v0.7.1...v0.7.2) (2026-10-20)
 
 ### Bug Fixes
