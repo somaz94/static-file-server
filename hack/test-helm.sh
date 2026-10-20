@@ -243,7 +243,7 @@ fi
 expect_fail 'requires s3Cache.enabled' --set mode=cache
 expect_fail 'serves no files' -f "${CHART_DIR}/examples/runner-cache.yaml" \
     --set httproute.enabled=true --set "httproute.parentRefs[0].name=gw"
-expect_fail 'mode must be' --set mode=bogus
+expect_fail 'mode' --set mode=bogus
 echo "  [OK] Cache-only mode render and guards"
 echo ""
 
@@ -315,17 +315,17 @@ echo "  [OK] Pod knobs, route guard and test hook"
 echo ""
 
 # 19. values.schema.json rejects what the server would refuse at startup.
-# Match field paths only: the validator's wording changes between Helm versions.
+# Match the leaf key only: Helm versions word and format the path differently (mode vs /mode).
 echo "--- Values schema ---"
 expect_fail 'bogus' --set bogus=1
-expect_fail 'config.debug' --set config.debug=on
-expect_fail 'config.port' --set config.port=abc
-expect_fail 's3Cache.ttl' --set s3Cache.ttl=7d
-expect_fail 's3Cache.maxTotalSize' --set s3Cache.maxTotalSize=50Gi
+expect_fail 'debug' --set config.debug=on
+expect_fail 'port' --set config.port=abc
+expect_fail 'ttl' --set s3Cache.ttl=7d
+expect_fail 'maxTotalSize' --set s3Cache.maxTotalSize=50Gi
 # Unquoted, Helm renders a large size as 5.36870912e+10, which the server rejects.
-expect_fail 's3Cache.maxTotalSize' --set s3Cache.maxTotalSize=53687091200
-expect_fail 'persistence.accessMode' --set persistence.accessMode=RWX
-expect_fail 'config.port' --set-string config.port=99999
+expect_fail 'maxTotalSize' --set s3Cache.maxTotalSize=53687091200
+expect_fail 'accessMode' --set persistence.accessMode=RWX
+expect_fail 'port' --set-string config.port=99999
 helm template test-release "${CHART_DIR}" --set config.debug=true --set config.port=8080 --set image.tag=20261020 \
     --set service.targetPort=8080 --set enabled=true \
     --set-string s3Cache.maxTotalSize=53687091200 --set s3Cache.ttl=336h > /dev/null
