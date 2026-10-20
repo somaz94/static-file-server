@@ -156,8 +156,8 @@ OUT=$(helm template test-release "${CHART_DIR}" \
     --set s3Cache.existingSecret=cache-creds \
     --set s3Cache.persistence.enabled=true \
     --set s3Cache.persistence.storageClass=nfs-client)
-echo "$OUT" | grep -q "name: test-release-static-file-server-s3-cache" || { echo "  [FAIL] s3 cache PVC not rendered"; exit 1; }
-echo "$OUT" | grep -q "claimName: test-release-static-file-server-s3-cache" || { echo "  [FAIL] s3 cache PVC not mounted"; exit 1; }
+grep -q "name: test-release-static-file-server-s3-cache" <<<"$OUT" || { echo "  [FAIL] s3 cache PVC not rendered"; exit 1; }
+grep -q "claimName: test-release-static-file-server-s3-cache" <<<"$OUT" || { echo "  [FAIL] s3 cache PVC not mounted"; exit 1; }
 echo "  [OK] S3 cache (chart-created PVC) render successfully"
 echo ""
 
@@ -186,10 +186,11 @@ OUT=$(helm template test-release "${CHART_DIR}" \
     --set serviceMonitor.labels.release=kube-prometheus-stack \
     --set s3Cache.enabled=true \
     --set s3Cache.existingSecret=cache-creds)
-echo "$OUT" | grep -q "kind: ServiceMonitor" || { echo "  [FAIL] ServiceMonitor not rendered"; exit 1; }
-echo "$OUT" | grep -q -- "- port: s3" || { echo "  [FAIL] s3 endpoint missing"; exit 1; }
-echo "$OUT" | grep -q "release: kube-prometheus-stack" || { echo "  [FAIL] extra labels missing"; exit 1; }
-if helm template test-release "${CHART_DIR}" --set config.metrics=true --set serviceMonitor.enabled=true | grep -q -- "- port: s3"; then
+grep -q "kind: ServiceMonitor" <<<"$OUT" || { echo "  [FAIL] ServiceMonitor not rendered"; exit 1; }
+grep -q -- "- port: s3" <<<"$OUT" || { echo "  [FAIL] s3 endpoint missing"; exit 1; }
+grep -q "release: kube-prometheus-stack" <<<"$OUT" || { echo "  [FAIL] extra labels missing"; exit 1; }
+OUT=$(helm template test-release "${CHART_DIR}" --set config.metrics=true --set serviceMonitor.enabled=true)
+if grep -q -- "- port: s3" <<<"$OUT"; then
     echo "  [FAIL] s3 endpoint rendered without s3Cache"; exit 1
 fi
 if helm template test-release "${CHART_DIR}" --set serviceMonitor.enabled=true > /dev/null 2>&1; then
@@ -198,7 +199,43 @@ fi
 echo "  [OK] ServiceMonitor render and metrics guard"
 echo ""
 
-# 15. Template render (all example files)
+# 15. Regression guards for chart bugs
+echo "--- Template (regression guards) ---"
+# A chart-created content PVC reused as the cache claim must be rejected.
+if helm template test-release "${CHART_DIR}" --set persistence.enabled=true \
+    --set s3Cache.enabled=true --set s3Cache.existingSecret=c \
+    --set s3Cache.existingClaim=test-release-static-file-server-data > /dev/null 2>&1; then
+    echo "  [FAIL] cache on the chart-created content claim rendered"; exit 1
+fi
+# "./cache" is not a dot directory.
+if helm template test-release "${CHART_DIR}" --set persistentVolumeClaims.enabled=true \
+    --set "persistentVolumeClaims.items[0].name=web" --set config.hideDotFiles=true \
+    --set s3Cache.enabled=true --set s3Cache.existingSecret=c --set s3Cache.existingClaim=web \
+    --set s3Cache.subPath=./cache > /dev/null 2>&1; then
+    echo "  [FAIL] subPath ./cache accepted as hidden"; exit 1
+fi
+# An existingClaim that persistence does not mount is not served content.
+helm template test-release "${CHART_DIR}" --set persistence.existingClaim=foo \
+    --set s3Cache.enabled=true --set s3Cache.existingSecret=c --set s3Cache.existingClaim=foo > /dev/null \
+    || { echo "  [FAIL] unmounted claim rejected as served"; exit 1; }
+# ReadWriteOnce cache claim shared by replicas.
+if helm template test-release "${CHART_DIR}" --set replicaCount=2 --set s3Cache.enabled=true \
+    --set s3Cache.existingSecret=c --set s3Cache.persistence.enabled=true > /dev/null 2>&1; then
+    echo "  [FAIL] RWO cache claim with 2 replicas rendered"; exit 1
+fi
+OUT=$(helm template test-release "${CHART_DIR}" --set persistentVolumeClaims.enabled=true \
+    --set "persistentVolumeClaims.items[0].name=web" --set "persistentVolumeClaims.items[0].readOnly=false")
+grep -q "readOnly: false" <<<"$OUT" || { echo "  [FAIL] readOnly: false ignored"; exit 1; }
+grep -q "targetPort: http" <<<"$OUT" || { echo "  [FAIL] Service targetPort is not the named port"; exit 1; }
+OUT=$(helm template test-release "${CHART_DIR}" --set config.tlsCert=/tls/tls.crt --set config.tlsKey=/tls/tls.key)
+[ "$(grep -c "scheme: HTTPS" <<<"$OUT")" -eq 2 ] || { echo "  [FAIL] TLS probes must use HTTPS"; exit 1; }
+if helm template test-release "${CHART_DIR}" --set httproute.enabled=true > /dev/null 2>&1; then
+    echo "  [FAIL] HTTPRoute without a parentRef name rendered"; exit 1
+fi
+echo "  [OK] Regression guards hold"
+echo ""
+
+# 16. Template render (all example files)
 echo "--- Template (example values) ---"
 for f in "${CHART_DIR}"/examples/*.yaml; do
     name=$(basename "$f" .yaml)
@@ -207,5 +244,5 @@ for f in "${CHART_DIR}"/examples/*.yaml; do
 done
 echo ""
 
-TOTAL=$((14 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
+TOTAL=$((15 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
 echo "==> All Helm chart tests passed! (${TOTAL} scenarios)"

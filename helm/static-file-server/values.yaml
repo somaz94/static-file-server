@@ -68,7 +68,6 @@ extraEnv: []
 service:
   type: ClusterIP
   port: 80
-  targetPort: 8080
   annotations: {}
 
 ingress:
@@ -133,10 +132,9 @@ httproute:
       #   request: 60s
       #   backendRequest: 30s
       backendRefs:
-        - # name defaults to the chart fullname (this release's Service)
-          # port defaults to .Values.service.port
-          port: 80
-          # weight: 1
+        # name defaults to the chart fullname (this release's Service),
+        # port to .Values.service.port; weight is optional.
+        - {}
 
   # HTTP → HTTPS redirect (sibling HTTPRoute on the HTTP listener).
   # Requires your Gateway to expose both HTTP and HTTPS listeners and your
@@ -295,6 +293,7 @@ serviceMonitor:
   labels: {}         # extra labels, e.g. the release label an operator's serviceMonitorSelector expects
   interval: ""       # empty uses the Prometheus global scrape interval
   scrapeTimeout: ""
+  tlsConfig: {}      # used when config.tlsCert is set, e.g. {insecureSkipVerify: true} for a self-signed cert
 
 nodeSelector: {}
 tolerations: []

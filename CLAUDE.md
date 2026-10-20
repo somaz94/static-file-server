@@ -11,6 +11,7 @@ Lightweight, zero-dependency static file server written in Go with modern direct
 - `internal/config/` - Configuration loading (env vars > YAML > defaults)
 - `internal/handler/` - HTTP handler middleware chain + directory listing
 - `internal/handler/templates/` - Embedded HTML template with icons, search, preview
+- `internal/httpx/` - Helpers shared by both listeners: status/bytes `Recorder` (keeps `ReadFrom` for sendfile, `Unwrap`) and the bounded metric method label
 - `internal/s3cache/` - GitLab Runner cache endpoint: SigV4 presigned GET/HEAD/PUT, filesystem store, TTL janitor
 - `internal/server/` - HTTP/HTTPS server lifecycle (file server + optional S3 cache listener)
 - `internal/version/` - Build version metadata injected via ldflags
@@ -156,16 +157,11 @@ make test-integration # Integration (end-to-end HTTP) tests only
 make cover            # HTML coverage report
 ```
 
-Test coverage (93.5% total):
-- `internal/version` - 100%
-- `internal/server` - 100%
-- `internal/config` - 98.9%
-- `internal/handler` - 90.3%
-- Integration tests: 12 end-to-end scenarios
+CI fails below 90% total coverage; `make cover` shows the current per-package figures. `make test-helm` runs in CI too.
 
 ## CI/CD Workflows
 
-- `test.yml` - Run tests on push to main / PRs (90% coverage gate)
+- `test.yml` - Run Go tests (90% coverage gate) and Helm chart tests on push to main / PRs
 - `lint.yml` - golangci-lint (manual dispatch)
 - `release.yml` - Docker build + push + GitHub release on tags
 - `helm-release.yml` - Package and publish Helm chart on tags

@@ -27,3 +27,7 @@ jobs:
         run: |
           go mod tidy
           make test
+
+      # helm is preinstalled on GitHub-hosted Ubuntu runners.
+      - name: Helm chart tests
+        run: make test-helm

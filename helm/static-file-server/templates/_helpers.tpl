@@ -60,21 +60,44 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
+Name of the content claim used by persistence (chart-created or existing).
+*/}}
+{{- define "static-file-server.dataClaimName" -}}
+{{- .Values.persistence.existingClaim | default (printf "%s-data" (include "static-file-server.fullname" .)) -}}
+{{- end }}
+
+{{/*
+Claims mounted as served content, as a JSON list. Mirrors the volume selection in
+deployment.yaml so the s3Cache guard checks exactly what is mounted.
+*/}}
+{{- define "static-file-server.servedClaims" -}}
+{{- $served := list -}}
+{{- if .Values.persistentVolumeClaims.enabled -}}
+{{- range .Values.persistentVolumeClaims.items }}{{ $served = append $served .name }}{{ end -}}
+{{- else if .Values.persistence.enabled -}}
+{{- $served = append $served (include "static-file-server.dataClaimName" .) -}}
+{{- end -}}
+{{- toJson $served -}}
+{{- end }}
+
+{{/*
 S3 cache endpoint env vars. Fails when the cache would be reachable through the
-file server: same claim as the served content without a hidden dot subPath.
+file server (same claim as the served content without a hidden dot subPath), or
+when a ReadWriteOnce cache claim would be shared by several replicas.
 */}}
 {{- define "static-file-server.s3CacheEnv" -}}
 {{- $c := .Values.s3Cache -}}
 {{- $secret := required "s3Cache.existingSecret is required when s3Cache.enabled=true" $c.existingSecret -}}
 {{- if $c.existingClaim }}
-{{- $served := list .Values.persistence.existingClaim -}}
-{{- if .Values.persistentVolumeClaims.enabled }}
-{{- range .Values.persistentVolumeClaims.items }}{{ $served = append $served .name }}{{ end }}
-{{- end }}
-{{- if and (has $c.existingClaim $served) (not (and (eq (toString .Values.config.hideDotFiles) "true") (hasPrefix "." (toString $c.subPath)))) }}
+{{- $served := include "static-file-server.servedClaims" . | fromJsonArray -}}
+{{- /* The first subPath segment must be a dot directory: ".runner-cache", not "./cache". */ -}}
+{{- $hidden := and (eq (toString .Values.config.hideDotFiles) "true") (regexMatch "^\\.[^./]" (toString $c.subPath)) -}}
+{{- if and (has $c.existingClaim $served) (not $hidden) }}
 {{- fail "s3Cache.existingClaim is also served as content: set s3Cache.subPath to a dot directory (e.g. .runner-cache) and config.hideDotFiles=\"true\", or use a separate claim" -}}
 {{- end }}
-{{- end }}
+{{- else if and $c.persistence.enabled (gt (int .Values.replicaCount) 1) (eq $c.persistence.accessMode "ReadWriteOnce") }}
+{{- fail "s3Cache.persistence.accessMode=ReadWriteOnce cannot be shared by replicaCount > 1: use ReadWriteMany" -}}
+{{- end -}}
 - name: S3_ENABLED
   value: "true"
 - name: S3_PORT

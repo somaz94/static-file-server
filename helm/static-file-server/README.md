@@ -110,7 +110,6 @@ helm uninstall my-server
 |-----------|-------------|---------|
 | `service.type` | Service type | `ClusterIP` |
 | `service.port` | Service port | `80` |
-| `service.targetPort` | Target container port | `8080` |
 | `service.annotations` | Service annotations | `{}` |
 | `ingress.enabled` | Enable ingress | `false` |
 | `ingress.className` | Ingress class name | `""` |
@@ -236,6 +235,7 @@ Requires the Prometheus Operator CRDs and `config.metrics: "true"`; the render f
 | `serviceMonitor.enabled` | Create a ServiceMonitor | `false` |
 | `serviceMonitor.labels` | Extra labels, e.g. the label your Prometheus `serviceMonitorSelector` matches | `{}` |
 | `serviceMonitor.interval` / `.scrapeTimeout` | Scrape interval and timeout | `""` (Prometheus defaults) |
+| `serviceMonitor.tlsConfig` | Endpoint `tlsConfig` when `config.tlsCert` is set (scheme switches to `https`) | `{}` |
 
 <br/>
 

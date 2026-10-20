@@ -116,6 +116,9 @@ spec:
             httpGet:
               path: {{ .Values.probes.liveness.path }}
               port: {{ .Values.probes.liveness.port }}
+              {{- if .Values.config.tlsCert }}
+              scheme: HTTPS
+              {{- end }}
             initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
           {{- end }}
@@ -124,6 +127,9 @@ spec:
             httpGet:
               path: {{ .Values.probes.readiness.path }}
               port: {{ .Values.probes.readiness.port }}
+              {{- if .Values.config.tlsCert }}
+              scheme: HTTPS
+              {{- end }}
             initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
           {{- end }}
@@ -134,7 +140,7 @@ spec:
             {{- range .Values.persistentVolumeClaims.items }}
             - name: {{ .name }}
               mountPath: {{ .mountPath | default "/web" }}
-              readOnly: {{ .readOnly | default true }}
+              readOnly: {{ ternary .readOnly true (hasKey . "readOnly") }}
             {{- end }}
             {{- else }}
             - name: web-content
@@ -161,7 +167,7 @@ spec:
         {{- else if .Values.persistence.enabled }}
         - name: web-content
           persistentVolumeClaim:
-            claimName: {{ .Values.persistence.existingClaim | default (printf "%s-data" (include "static-file-server.fullname" .)) }}
+            claimName: {{ include "static-file-server.dataClaimName" . }}
         {{- else if .Values.content.enabled }}
         - name: web-content
           configMap:
