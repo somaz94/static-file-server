@@ -52,15 +52,21 @@ func TestLoadEnvS3(t *testing.T) {
 	}
 }
 
-func TestLoadEnvS3InvalidNumbersIgnored(t *testing.T) {
-	t.Setenv("S3_TTL", "two weeks")
-	t.Setenv("S3_MAX_OBJECT_SIZE", "1G")
-	cfg, err := Load("")
-	if err != nil {
-		t.Fatalf("Load: %v", err)
+func TestLoadEnvS3InvalidNumbersRejected(t *testing.T) {
+	tests := []struct{ key, value string }{
+		{"S3_TTL", "7d"},
+		{"S3_TTL", "two weeks"},
+		{"S3_MAX_OBJECT_SIZE", "1G"},
+		{"S3_MAX_TOTAL_SIZE", "50Gi"},
 	}
-	if cfg.S3TTL != 0 || cfg.S3MaxObjectSize != 0 {
-		t.Fatalf("invalid values should be ignored: ttl=%s max=%d", cfg.S3TTL, cfg.S3MaxObjectSize)
+	for _, tt := range tests {
+		t.Run(tt.key+"="+tt.value, func(t *testing.T) {
+			t.Setenv(tt.key, tt.value)
+			_, err := Load("")
+			if err == nil || !strings.Contains(err.Error(), tt.key+"=") {
+				t.Fatalf("expected an error naming %s, got %v", tt.key, err)
+			}
+		})
 	}
 }
 

@@ -3,6 +3,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -86,7 +87,9 @@ func Load(configFile string) (*Config, error) {
 		}
 	}
 
-	cfg.loadEnv()
+	if err := cfg.loadEnv(); err != nil {
+		return nil, fmt.Errorf("env: %w", err)
+	}
 
 	if err := cfg.validate(); err != nil {
 		return nil, fmt.Errorf("config validation: %w", err)
@@ -104,98 +107,121 @@ func (c *Config) loadYAML(path string) error {
 	return yaml.Unmarshal(data, c)
 }
 
-// loadEnv overrides configuration with environment variables when set.
-func (c *Config) loadEnv() {
-	if v, ok := lookupEnvBool("CORS"); ok {
-		c.CORS = v
-	}
-	if v, ok := lookupEnvBool("DEBUG"); ok {
-		c.Debug = v
-	}
-	if v, ok := os.LookupEnv("HOST"); ok {
-		c.Host = v
-	}
-	if v, ok := lookupEnvUint16("PORT"); ok {
-		c.Port = v
-	}
-	if v, ok := os.LookupEnv("FOLDER"); ok {
-		c.Folder = v
-	}
-	if v, ok := lookupEnvBool("ALLOW_INDEX"); ok {
-		c.AllowIndex = v
-	}
-	if v, ok := lookupEnvBool("SHOW_LISTING"); ok {
-		c.ShowListing = v
-	}
-	if v, ok := os.LookupEnv("URL_PREFIX"); ok {
-		c.URLPrefix = v
-	}
-	if v, ok := os.LookupEnv("TLS_CERT"); ok {
-		c.TLSCert = v
-	}
-	if v, ok := os.LookupEnv("TLS_KEY"); ok {
-		c.TLSKey = v
-	}
-	if v, ok := os.LookupEnv("TLS_MIN_VERS"); ok {
-		c.TLSMinVers = v
-	}
+// loadEnv overrides configuration with environment variables when set. A malformed
+// typed value is an error: ignoring S3_TTL=7d or S3_MAX_TOTAL_SIZE=50Gi would silently
+// disable expiry and the size limit.
+func (c *Config) loadEnv() error {
+	var e envBinder
+	e.bool("CORS", &c.CORS)
+	e.bool("DEBUG", &c.Debug)
+	e.string("HOST", &c.Host)
+	e.uint16("PORT", &c.Port)
+	e.string("FOLDER", &c.Folder)
+	e.bool("ALLOW_INDEX", &c.AllowIndex)
+	e.bool("SHOW_LISTING", &c.ShowListing)
+	e.string("URL_PREFIX", &c.URLPrefix)
+	e.string("TLS_CERT", &c.TLSCert)
+	e.string("TLS_KEY", &c.TLSKey)
+	e.string("TLS_MIN_VERS", &c.TLSMinVers)
 	if v, ok := os.LookupEnv("REFERRERS"); ok {
 		c.Referrers = parseReferrers(v)
 	}
-	if v, ok := os.LookupEnv("ACCESS_KEY"); ok {
-		c.AccessKey = v
-	}
+	e.string("ACCESS_KEY", &c.AccessKey)
 	if v, ok := os.LookupEnv("CUSTOM_HEADERS"); ok {
 		c.CustomHeaders = parseHeaders(v)
 	}
-	if v, ok := lookupEnvBool("SPA"); ok {
-		c.SPA = v
-	}
-	if v, ok := lookupEnvBool("COMPRESSION"); ok {
-		c.Compression = v
-	}
-	if v, ok := lookupEnvBool("HIDE_DOT_FILES"); ok {
-		c.HideDotFiles = v
-	}
-	if v, ok := os.LookupEnv("LOG_FORMAT"); ok {
-		c.LogFormat = v
-	}
-	if v, ok := lookupEnvBool("METRICS"); ok {
-		c.Metrics = v
-	}
-	if v, ok := lookupEnvBool("S3_ENABLED"); ok {
-		c.S3Enabled = v
-	}
-	if v, ok := lookupEnvUint16("S3_PORT"); ok {
-		c.S3Port = v
-	}
-	if v, ok := os.LookupEnv("S3_FOLDER"); ok {
-		c.S3Folder = v
-	}
-	if v, ok := os.LookupEnv("S3_ACCESS_KEY"); ok {
-		c.S3AccessKey = v
-	}
-	if v, ok := os.LookupEnv("S3_SECRET_KEY"); ok {
-		c.S3SecretKey = v
-	}
+	e.bool("SPA", &c.SPA)
+	e.bool("COMPRESSION", &c.Compression)
+	e.bool("HIDE_DOT_FILES", &c.HideDotFiles)
+	e.string("LOG_FORMAT", &c.LogFormat)
+	e.bool("METRICS", &c.Metrics)
+	e.bool("S3_ENABLED", &c.S3Enabled)
+	e.uint16("S3_PORT", &c.S3Port)
+	e.string("S3_FOLDER", &c.S3Folder)
+	e.string("S3_ACCESS_KEY", &c.S3AccessKey)
+	e.string("S3_SECRET_KEY", &c.S3SecretKey)
 	if v, ok := os.LookupEnv("S3_BUCKETS"); ok {
 		c.S3Buckets = parseReferrers(v)
 	}
-	if v, ok := os.LookupEnv("S3_TTL"); ok {
-		if d, err := time.ParseDuration(strings.TrimSpace(v)); err == nil {
-			c.S3TTL = d
-		}
+	e.duration("S3_TTL", &c.S3TTL)
+	e.int64("S3_MAX_OBJECT_SIZE", &c.S3MaxObjectSize)
+	e.int64("S3_MAX_TOTAL_SIZE", &c.S3MaxTotalSize)
+	return errors.Join(e.errs...)
+}
+
+// envBinder applies environment variables to typed fields and collects parse errors.
+// An empty typed value counts as unset, as compose files render ${VAR} for a missing VAR.
+type envBinder struct {
+	errs []error
+}
+
+func (e *envBinder) string(key string, dst *string) {
+	if v, ok := os.LookupEnv(key); ok {
+		*dst = v
 	}
-	if v, ok := os.LookupEnv("S3_MAX_OBJECT_SIZE"); ok {
-		if n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); err == nil {
-			c.S3MaxObjectSize = n
-		}
+}
+
+// lookup returns the trimmed value of a typed variable, or false when it is unset or empty.
+func (e *envBinder) lookup(key string) (string, bool) {
+	v, ok := os.LookupEnv(key)
+	v = strings.TrimSpace(v)
+	return v, ok && v != ""
+}
+
+func (e *envBinder) fail(key, raw, want string) {
+	e.errs = append(e.errs, fmt.Errorf("%s=%q: must be %s", key, raw, want))
+}
+
+func (e *envBinder) bool(key string, dst *bool) {
+	raw, ok := e.lookup(key)
+	if !ok {
+		return
 	}
-	if v, ok := os.LookupEnv("S3_MAX_TOTAL_SIZE"); ok {
-		if n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); err == nil {
-			c.S3MaxTotalSize = n
-		}
+	v, valid := parseBool(raw)
+	if !valid {
+		e.fail(key, raw, "a boolean (true/t/yes/y/1 or false/f/no/n/0)")
+		return
 	}
+	*dst = v
+}
+
+func (e *envBinder) uint16(key string, dst *uint16) {
+	raw, ok := e.lookup(key)
+	if !ok {
+		return
+	}
+	v, err := strconv.ParseUint(raw, 10, 16)
+	if err != nil {
+		e.fail(key, raw, "a port number (0-65535)")
+		return
+	}
+	*dst = uint16(v)
+}
+
+func (e *envBinder) duration(key string, dst *time.Duration) {
+	raw, ok := e.lookup(key)
+	if !ok {
+		return
+	}
+	v, err := time.ParseDuration(raw)
+	if err != nil {
+		e.fail(key, raw, "a Go duration such as 336h")
+		return
+	}
+	*dst = v
+}
+
+func (e *envBinder) int64(key string, dst *int64) {
+	raw, ok := e.lookup(key)
+	if !ok {
+		return
+	}
+	v, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		e.fail(key, raw, "a whole number of bytes")
+		return
+	}
+	*dst = v
 }
 
 // validate checks for configuration errors.
@@ -354,13 +380,8 @@ func (c *Config) Summary() string {
 	return b.String()
 }
 
-// lookupEnvBool reads a boolean environment variable.
-// Accepts: 1, true, t, yes, y (true) and 0, false, f, no, n (false).
-func lookupEnvBool(key string) (bool, bool) {
-	raw, ok := os.LookupEnv(key)
-	if !ok {
-		return false, false
-	}
+// parseBool accepts 1, true, t, yes, y and 0, false, f, no, n, case-insensitively.
+func parseBool(raw string) (value, ok bool) {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "1", "true", "t", "yes", "y":
 		return true, true
@@ -369,19 +390,6 @@ func lookupEnvBool(key string) (bool, bool) {
 	default:
 		return false, false
 	}
-}
-
-// lookupEnvUint16 reads a uint16 environment variable.
-func lookupEnvUint16(key string) (uint16, bool) {
-	raw, ok := os.LookupEnv(key)
-	if !ok {
-		return 0, false
-	}
-	v, err := strconv.ParseUint(strings.TrimSpace(raw), 10, 16)
-	if err != nil {
-		return 0, false
-	}
-	return uint16(v), true
 }
 
 // parseReferrers splits a comma-separated string into a referrer list.

@@ -148,14 +148,7 @@ func TestLoadEnvBoolVariants(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			_, ok := lookupEnvBool("TEST_BOOL")
-			// Before setting env
-			if ok {
-				t.Error("expected not ok when env not set")
-			}
-
-			t.Setenv("TEST_BOOL", tt.input)
-			got, ok := lookupEnvBool("TEST_BOOL")
+			got, ok := parseBool(tt.input)
 			if ok != tt.valid {
 				t.Errorf("input %q: expected valid=%v, got %v", tt.input, tt.valid, ok)
 			}
@@ -382,27 +375,45 @@ func assertLoadEnvStrings(t *testing.T, cfg *Config) {
 	}
 }
 
-func TestLoadEnvUint16Invalid(t *testing.T) {
-	t.Setenv("PORT", "not-a-number")
-	cfg, err := Load("")
-	if err != nil {
-		t.Fatalf("Load failed: %v", err)
+func TestLoadEnvInvalidTypedValues(t *testing.T) {
+	tests := []struct{ key, value string }{
+		{"PORT", "not-a-number"},
+		{"PORT", "99999"},
+		{"S3_PORT", "-1"},
+		{"DEBUG", "on"},
+		{"METRICS", "enabled"},
 	}
-	// Invalid PORT should be ignored, keeping default
-	if cfg.Port != 8080 {
-		t.Errorf("expected default port 8080 for invalid PORT, got %d", cfg.Port)
+	for _, tt := range tests {
+		t.Run(tt.key+"="+tt.value, func(t *testing.T) {
+			t.Setenv(tt.key, tt.value)
+			_, err := Load("")
+			if err == nil || !strings.Contains(err.Error(), tt.key+"=") {
+				t.Fatalf("expected an error naming %s, got %v", tt.key, err)
+			}
+		})
 	}
 }
 
-func TestLoadEnvUint16Overflow(t *testing.T) {
-	t.Setenv("PORT", "99999")
+func TestLoadEnvEmptyTypedValueIsUnset(t *testing.T) {
+	t.Setenv("PORT", " ")
+	t.Setenv("DEBUG", "")
+	t.Setenv("S3_TTL", "")
+	t.Setenv("S3_MAX_TOTAL_SIZE", " ")
 	cfg, err := Load("")
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
-	// Overflow should be ignored, keeping default
-	if cfg.Port != 8080 {
-		t.Errorf("expected default port 8080 for overflow PORT, got %d", cfg.Port)
+	if cfg.Port != 8080 || cfg.Debug || cfg.S3TTL != 0 || cfg.S3MaxTotalSize != 0 {
+		t.Errorf("empty values should keep defaults, got %+v", cfg)
+	}
+}
+
+func TestLoadEnvReportsEveryInvalidValue(t *testing.T) {
+	t.Setenv("PORT", "abc")
+	t.Setenv("CORS", "maybe")
+	_, err := Load("")
+	if err == nil || !strings.Contains(err.Error(), "PORT=") || !strings.Contains(err.Error(), "CORS=") {
+		t.Fatalf("expected both PORT and CORS in the error, got %v", err)
 	}
 }
 

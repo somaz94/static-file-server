@@ -35,6 +35,8 @@ static-file-server supports three configuration methods. Priority (highest to lo
 
 Boolean values accept: `1`, `true`, `t`, `yes`, `y` (true) and `0`, `false`, `f`, `no`, `n` (false).
 
+A typed variable (bool, port, duration, size) that does not parse stops the server at startup with an error naming every bad variable, for example `S3_TTL="7d": must be a Go duration such as 336h`. An empty value counts as unset.
+
 <br/>
 
 ## YAML Config File
