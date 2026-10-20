@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.11.1](https://github.com/somaz94/static-file-server/compare/v0.11.0...v0.11.1) (2026-10-20)
+
+### Bug Fixes
+
+- **handler:** decide gzip by Content-Type so HEAD keeps its length and zip downloads are not recompressed ([b3bbf7e](https://github.com/somaz94/static-file-server/commit/b3bbf7e79da2827774c0a8d4ff0c82c31e2b01f8))
+
+### Code Refactoring
+
+- **handler:** share the path resolution and batch branch across file handlers ([acc71d0](https://github.com/somaz94/static-file-server/commit/acc71d0b0da16edf7d8bb06790eee46be9c18af5))
+
+### Chores
+
+- bump version to v0.11.1 ([1c499f8](https://github.com/somaz94/static-file-server/commit/1c499f8fafe3c6e24dfdc26649746901d0e3917c))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.11.0](https://github.com/somaz94/static-file-server/compare/v0.10.0...v0.11.0) (2026-10-20)
 
 ### Features
