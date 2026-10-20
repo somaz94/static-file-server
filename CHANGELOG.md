@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.7.2](https://github.com/somaz94/static-file-server/compare/v0.7.1...v0.7.2) (2026-10-20)
+
+### Bug Fixes
+
+- **s3cache:** evict by last use and stop over-eviction across replicas ([0ec85fd](https://github.com/somaz94/static-file-server/commit/0ec85fd15335d6764cb2888aa5944bb480ea2510))
+
+### Chores
+
+- bump version to v0.7.2 ([af36c8a](https://github.com/somaz94/static-file-server/commit/af36c8ab9aaa061082db4c5d5f21da44408505ce))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.7.1](https://github.com/somaz94/static-file-server/compare/v0.7.0...v0.7.1) (2026-10-19)
 
 ### Features
