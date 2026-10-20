@@ -143,18 +143,40 @@ func safePath(folder, absFolder, urlPath string) (string, error) {
 	return fullPath, nil
 }
 
+// resolve maps the request to a path under folder and stats it. When it returns false
+// it has already answered 404.
+func resolve(w http.ResponseWriter, r *http.Request, folder, absFolder string) (string, os.FileInfo, bool) {
+	fpath, err := safePath(folder, absFolder, r.URL.Path)
+	if err != nil {
+		http.NotFound(w, r)
+		return "", nil, false
+	}
+	info, err := os.Stat(fpath)
+	if err != nil {
+		http.NotFound(w, r)
+		return "", nil, false
+	}
+	return fpath, info, true
+}
+
+// serveBatch answers a directory's POST ?batch=zip with a zip archive and reports whether it did.
+func serveBatch(w http.ResponseWriter, r *http.Request, fpath string, info os.FileInfo, hideDot bool) bool {
+	if r.URL.Query().Get("batch") != "zip" || !info.IsDir() {
+		return false
+	}
+	handleBatchDownload(w, r, fpath, hideDot)
+	return true
+}
+
 // basic serves files only. Directories return 404.
 func basic(folder string) http.HandlerFunc {
 	absFolder := resolveAbsFolder(folder)
 	return func(w http.ResponseWriter, r *http.Request) {
-		fpath, err := safePath(folder, absFolder, r.URL.Path)
-		if err != nil {
-			http.NotFound(w, r)
+		fpath, info, ok := resolve(w, r, folder, absFolder)
+		if !ok {
 			return
 		}
-
-		info, err := os.Stat(fpath)
-		if err != nil || info.IsDir() {
+		if info.IsDir() {
 			http.NotFound(w, r)
 			return
 		}
@@ -167,15 +189,8 @@ func basic(folder string) http.HandlerFunc {
 func index(folder string) http.HandlerFunc {
 	absFolder := resolveAbsFolder(folder)
 	return func(w http.ResponseWriter, r *http.Request) {
-		fpath, err := safePath(folder, absFolder, r.URL.Path)
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-
-		info, err := os.Stat(fpath)
-		if err != nil {
-			http.NotFound(w, r)
+		fpath, info, ok := resolve(w, r, folder, absFolder)
+		if !ok {
 			return
 		}
 
@@ -200,21 +215,12 @@ func index(folder string) http.HandlerFunc {
 func listing(folder string, hideDot bool) http.HandlerFunc {
 	absFolder := resolveAbsFolder(folder)
 	return func(w http.ResponseWriter, r *http.Request) {
-		fpath, err := safePath(folder, absFolder, r.URL.Path)
-		if err != nil {
-			http.NotFound(w, r)
+		fpath, info, ok := resolve(w, r, folder, absFolder)
+		if !ok {
 			return
 		}
 
-		info, err := os.Stat(fpath)
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-
-		// Batch download: POST ?batch=zip
-		if r.URL.Query().Get("batch") == "zip" && info.IsDir() {
-			handleBatchDownload(w, r, fpath, hideDot)
+		if serveBatch(w, r, fpath, info, hideDot) {
 			return
 		}
 
@@ -235,21 +241,12 @@ func listing(folder string, hideDot bool) http.HandlerFunc {
 func listingAndIndex(folder string, hideDot bool) http.HandlerFunc {
 	absFolder := resolveAbsFolder(folder)
 	return func(w http.ResponseWriter, r *http.Request) {
-		fpath, err := safePath(folder, absFolder, r.URL.Path)
-		if err != nil {
-			http.NotFound(w, r)
+		fpath, info, ok := resolve(w, r, folder, absFolder)
+		if !ok {
 			return
 		}
 
-		info, err := os.Stat(fpath)
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-
-		// Batch download: POST ?batch=zip
-		if r.URL.Query().Get("batch") == "zip" && info.IsDir() {
-			handleBatchDownload(w, r, fpath, hideDot)
+		if serveBatch(w, r, fpath, info, hideDot) {
 			return
 		}
 
