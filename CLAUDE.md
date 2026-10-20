@@ -93,9 +93,9 @@ make pr title="..."   # Test + push + create PR
 | `S3_FOLDER` | string | `""` | Cache object directory (required; must not be served, see below) |
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | string | `""` | SigV4 credentials the runner signs with (required) |
 | `S3_BUCKETS` | string | `""` | Comma-separated bucket allowlist (empty = any) |
-| `S3_TTL` | duration | `0` | Expire objects by upload time (`0` = never) |
+| `S3_TTL` | duration | `0` | Expire objects neither uploaded nor read for this long (`0` = never) |
 | `S3_MAX_OBJECT_SIZE` | int | `0` | Max upload bytes (`0` = unlimited) |
-| `S3_MAX_TOTAL_SIZE` | int | `0` | Total size cap; the janitor evicts oldest uploads first (`0` = unlimited) |
+| `S3_MAX_TOTAL_SIZE` | int | `0` | Total size cap; the janitor evicts least recently used first (`0` = unlimited) |
 
 ## Middleware Chain (outer to inner)
 
@@ -135,7 +135,7 @@ make pr title="..."   # Test + push + create PR
 - `internal/s3cache` serves only what the runner cache uses: SigV4 query-presigned GET (with Range), HEAD and PUT on path-style URLs. Everything else is `501`. Not a general S3 server; do not grow it into one.
 - Separate `http.Server` on `S3_PORT`, none of the file-server middleware. `HEAD` signed for `GET` is accepted on purpose (the runner's cache extractor probes that way).
 - Layout: `<S3_FOLDER>/<bucket>/<key>`, metadata sidecar in `.meta/`, uploads staged in `.tmp/` then renamed.
-- Janitor (every 10 min, or the TTL if shorter): TTL expiry, then oldest-first eviction above `S3_MAX_TOTAL_SIZE`, then gauge update. With `METRICS=true` the cache listener serves its own `/metrics` (`static_file_server_s3_*`).
+- Janitor (every 10 min, or the TTL if shorter): TTL expiry, then least-recently-used eviction above `S3_MAX_TOTAL_SIZE`, then gauge update. Last use = the later of the data file mtime (upload) and the `.meta` sidecar mtime, which a `GET` / `HEAD` bumps at most hourly. The runner skips re-uploading an unchanged cache, so upload time alone would expire caches in daily use. An object another replica already deleted counts as freed during eviction. With `METRICS=true` the cache listener serves its own `/metrics` (`static_file_server_s3_*`).
 - Config validation rejects an `S3_FOLDER` inside `FOLDER` unless it is under a dot directory with `HIDE_DOT_FILES=true` (cache archives can hold secrets). The Helm chart enforces the same for a shared PVC.
 - Request shapes were checked against the gitlab-runner `cache/s3`, `cache/s3v2` and `commands/helpers/cache_*` sources; re-check them there when the runner changes its cache client.
 - Docs: `docs/s3-cache.md`.

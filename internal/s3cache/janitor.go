@@ -2,6 +2,7 @@ package s3cache
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"log"
 	"os"
@@ -39,12 +40,11 @@ func (s *Server) RunJanitor(ctx context.Context) {
 type storedObject struct {
 	bucket, key string
 	size        int64
-	modTime     time.Time
+	lastUsed    time.Time
 }
 
-// sweep expires objects by upload time (like an S3 lifecycle rule), then evicts the
-// oldest objects while the total exceeds MaxTotalSize. Because the runner re-uploads a
-// cache after every successful job, oldest-upload-first approximates least-recently-used.
+// sweep expires objects unused for longer than the TTL (upload or read, see store.touch), then
+// evicts the least recently used objects while the total exceeds MaxTotalSize.
 func (s *Server) sweep(now time.Time) {
 	root := s.store.root
 	var objects []storedObject
@@ -73,13 +73,14 @@ func (s *Server) sweep(now time.Time) {
 				_ = os.Remove(p)
 			}
 		default:
-			if s.opts.TTL > 0 && now.Sub(info.ModTime()) > s.opts.TTL {
-				if s.remove(top, rest) {
+			lastUsed := s.store.lastUsed(top, rest, info.ModTime())
+			if s.opts.TTL > 0 && now.Sub(lastUsed) > s.opts.TTL {
+				if s.remove(top, rest) == nil {
 					expired++
 				}
 				return nil
 			}
-			objects = append(objects, storedObject{top, rest, info.Size(), info.ModTime()})
+			objects = append(objects, storedObject{top, rest, info.Size(), lastUsed})
 			total += info.Size()
 		}
 		return nil
@@ -87,15 +88,8 @@ func (s *Server) sweep(now time.Time) {
 
 	evicted := 0
 	if s.opts.MaxTotalSize > 0 && total > s.opts.MaxTotalSize {
-		sort.Slice(objects, func(i, j int) bool { return objects[i].modTime.Before(objects[j].modTime) })
-		for len(objects) > 0 && total > s.opts.MaxTotalSize {
-			o := objects[0]
-			objects = objects[1:]
-			if s.remove(o.bucket, o.key) {
-				total -= o.size
-				evicted++
-			}
-		}
+		sort.Slice(objects, func(i, j int) bool { return objects[i].lastUsed.Before(objects[j].lastUsed) })
+		objects, total, evicted = s.evict(objects, total, s.opts.MaxTotalSize)
 	}
 
 	pruneEmptyDirs(root)
@@ -109,13 +103,37 @@ func (s *Server) sweep(now time.Time) {
 	}
 }
 
-// remove deletes an object and its metadata sidecar, reporting whether the object was deleted.
-func (s *Server) remove(bucket, key string) bool {
-	if os.Remove(s.store.dataPath(bucket, key)) != nil {
-		return false
+// evict removes objects, sorted least recently used first, until total fits in limit.
+// It returns the objects still stored, their total size and how many it deleted.
+func (s *Server) evict(objects []storedObject, total, limit int64) ([]storedObject, int64, int) {
+	var kept []storedObject
+	evicted := 0
+	for i, o := range objects {
+		if total <= limit {
+			return append(kept, objects[i:]...), total, evicted
+		}
+		switch err := s.remove(o.bucket, o.key); {
+		case err == nil:
+			total -= o.size
+			evicted++
+		case errors.Is(err, fs.ErrNotExist):
+			// Another replica sharing the volume evicted it first. Still counting its size
+			// would make this sweep delete objects the cap no longer requires.
+			total -= o.size
+		default:
+			kept = append(kept, o)
+		}
+	}
+	return kept, total, evicted
+}
+
+// remove deletes an object and its metadata sidecar.
+func (s *Server) remove(bucket, key string) error {
+	if err := os.Remove(s.store.dataPath(bucket, key)); err != nil {
+		return err
 	}
 	_ = os.Remove(s.store.metaPath(bucket, key))
-	return true
+	return nil
 }
 
 // pruneEmptyDirs removes empty directories below root, deepest first, keeping root and tmpDir.

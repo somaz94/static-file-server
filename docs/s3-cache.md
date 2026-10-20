@@ -19,7 +19,7 @@ Everything else (listing, multipart upload, `DELETE`, ACLs, header-signed reques
 - **Separate listener.** The endpoint listens on `S3_PORT` with its own handler. None of the file server's middleware (listing, access key, CORS) applies, and the file server never gains a write path.
 - **Authentication.** Every request must carry an AWS Signature Version 4 query signature (`X-Amz-Signature`) made with `S3_ACCESS_KEY` / `S3_SECRET_KEY`. Signed headers, method, path and expiry are all verified; the region in the credential scope is accepted as signed. A `HEAD` on a URL presigned for `GET` is accepted, because the runner probes that way and it reveals nothing a `GET` would not.
 - **Storage layout.** Objects live at `<S3_FOLDER>/<bucket>/<key>`. ETag, content type and user metadata live in a sidecar under `<S3_FOLDER>/.meta/`. Uploads are written to `<S3_FOLDER>/.tmp/` and renamed into place, so concurrent writers to the same key never expose a partial file.
-- **Retention.** A background janitor runs every 10 minutes (or every `S3_TTL`, if shorter). It deletes objects whose upload time is older than `S3_TTL`, like an S3 lifecycle expiration rule. Then, while the total exceeds `S3_MAX_TOTAL_SIZE`, it deletes the oldest uploads first. The runner re-uploads a cache after every successful job, so caches in use keep a recent upload time and the oldest ones are the ones nobody uses. Evicted caches are simply cache misses; the next job re-uploads them.
+- **Retention.** A background janitor runs every 10 minutes (or every `S3_TTL`, if shorter). It deletes objects not used for longer than `S3_TTL`, then, while the total exceeds `S3_MAX_TOTAL_SIZE`, deletes the least recently used first. An object's last use is its upload or its last `GET` / `HEAD`, whichever is later. Reads count because the runner skips re-uploading a cache whose files did not change, so a cache hit by every job can keep an old upload time. A read is recorded in the metadata sidecar's modification time, at most once an hour per object, and `Last-Modified` keeps reporting the upload time. Evicted caches are simply cache misses; the next job re-uploads them.
 
 <br/>
 
@@ -33,9 +33,9 @@ Everything else (listing, multipart upload, `DELETE`, ACLs, header-signed reques
 | `S3_ACCESS_KEY` | string | `""` | Access key ID the runner signs with (required) |
 | `S3_SECRET_KEY` | string | `""` | Secret access key (required) |
 | `S3_BUCKETS` | string | `""` | Comma-separated bucket allowlist; empty accepts any valid bucket name |
-| `S3_TTL` | duration | `0` | Delete objects older than this (Go duration, e.g. `336h`); `0` keeps them forever |
+| `S3_TTL` | duration | `0` | Delete objects neither uploaded nor read for this long (Go duration, e.g. `336h`); `0` keeps them forever |
 | `S3_MAX_OBJECT_SIZE` | int | `0` | Reject uploads larger than this many bytes; `0` means unlimited |
-| `S3_MAX_TOTAL_SIZE` | int | `0` | Total size cap in bytes; the janitor evicts oldest uploads above it; `0` means unlimited |
+| `S3_MAX_TOTAL_SIZE` | int | `0` | Total size cap in bytes; the janitor evicts least recently used objects above it; `0` means unlimited |
 
 YAML keys use the same names in kebab case: `s3-enabled`, `s3-port`, `s3-folder`, `s3-access-key`, `s3-secret-key`, `s3-buckets` (list), `s3-ttl`, `s3-max-object-size`, `s3-max-total-size`.
 
@@ -122,7 +122,7 @@ The chart adds an `s3` container port and a `<release>-s3` Service. See [example
 
 ## Operational notes
 
-- **Replicas.** Several pods can share one `ReadWriteMany` volume: writes are atomic renames, and the sweep only deletes files past the TTL. Each pod runs its own sweep, which is harmless.
+- **Replicas.** Several pods can share one `ReadWriteMany` volume: writes are atomic renames, and each pod runs its own sweep. When two sweeps overlap, an object the other pod already deleted still counts as freed, so the pair never evicts more than the cap requires.
 - **Timeouts.** The listener bounds only the request header read, because cache archives can take minutes to transfer. Keep it on an internal Service; do not expose it through an Ingress.
 - **Key conflicts.** A filesystem cannot hold both `a` and `a/b` as files. Such a `PUT` returns `409 KeyConflict`. Runner cache keys do not produce this layout in practice.
-- **NFS.** The sweep relies on file modification times, which NFS preserves. Temporary uploads older than 24 hours are treated as abandoned and removed.
+- **NFS.** Upload and last-use times are file modification times, which NFS preserves. Temporary uploads older than 24 hours are treated as abandoned and removed.

@@ -12,11 +12,15 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+	"time"
 )
 
 const (
 	metaDir = ".meta"
 	tmpDir  = ".tmp"
+
+	// touchInterval bounds last-use writes to one per object per hour, which is plenty for day-scale TTLs.
+	touchInterval = time.Hour
 )
 
 // Bucket names follow the S3 rules, so they can never start with '.' and clash with metaDir / tmpDir.
@@ -85,6 +89,24 @@ func (s *store) open(bucket, key string) (*os.File, objectMeta, os.FileInfo, err
 		_ = json.Unmarshal(raw, &meta)
 	}
 	return f, meta, fi, nil
+}
+
+// touch records a read as the object's last use in its sidecar's mtime. The runner skips
+// re-uploading an unchanged cache, so the data file's mtime alone would expire caches in daily
+// use. The data file is left alone so Last-Modified keeps meaning upload time.
+func (s *store) touch(bucket, key string, now time.Time) {
+	p := s.metaPath(bucket, key)
+	if fi, err := os.Stat(p); err == nil && now.Sub(fi.ModTime()) >= touchInterval {
+		_ = os.Chtimes(p, now, now)
+	}
+}
+
+// lastUsed is the later of the upload time and the last recorded read.
+func (s *store) lastUsed(bucket, key string, uploaded time.Time) time.Time {
+	if fi, err := os.Stat(s.metaPath(bucket, key)); err == nil && fi.ModTime().After(uploaded) {
+		return fi.ModTime()
+	}
+	return uploaded
 }
 
 // put streams exactly size bytes from body into the object, replacing it atomically.

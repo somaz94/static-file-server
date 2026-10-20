@@ -214,9 +214,9 @@ Serves the runner's distributed cache (presigned S3 GET/HEAD/PUT) on a separate 
 | `s3Cache.existingSecret` | Secret holding the credentials (required) | `""` |
 | `s3Cache.accessKeyKey` / `s3Cache.secretKeyKey` | Keys inside that Secret | `accessKey` / `secretKey` |
 | `s3Cache.buckets` | Comma-separated bucket allowlist | `""` (any) |
-| `s3Cache.ttl` | Expire objects by upload time (Go duration) | `""` (never) |
+| `s3Cache.ttl` | Expire objects neither uploaded nor read for this long (Go duration) | `""` (never) |
 | `s3Cache.maxObjectSize` | Max upload size in bytes | `""` (unlimited) |
-| `s3Cache.maxTotalSize` | Total size cap in bytes; oldest objects are evicted above it | `""` (unlimited) |
+| `s3Cache.maxTotalSize` | Total size cap in bytes; least recently used objects are evicted above it | `""` (unlimited) |
 | `s3Cache.existingClaim` | Existing PVC mounted read-write at `folder` (takes precedence over `persistence`) | `""` |
 | `s3Cache.persistence.enabled` | Create a `<release>-s3-cache` PVC for the cache | `false` (emptyDir) |
 | `s3Cache.persistence.storageClass` / `.accessMode` / `.size` | That PVC's class, access mode and size | `""` / `ReadWriteOnce` / `10Gi` |

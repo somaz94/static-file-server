@@ -271,9 +271,9 @@ s3Cache:
   accessKeyKey: accessKey
   secretKeyKey: secretKey
   buckets: ""        # comma-separated allowlist; empty accepts any bucket name
-  ttl: ""            # Go duration such as 336h; empty keeps objects forever
+  ttl: ""            # Go duration such as 336h, measured from the last upload or read; empty keeps objects forever
   maxObjectSize: ""  # bytes; empty means unlimited
-  maxTotalSize: ""   # bytes; oldest objects are evicted above this, empty means unlimited
+  maxTotalSize: ""   # bytes; least recently used objects are evicted above this, empty means unlimited
   # Writable storage at folder, in order of precedence: existingClaim, then a
   # chart-created PVC (persistence), else an emptyDir (lost on restart).
   existingClaim: ""

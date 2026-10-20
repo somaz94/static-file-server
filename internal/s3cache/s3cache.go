@@ -17,10 +17,10 @@ type Options struct {
 	Folder        string
 	AccessKey     string
 	SecretKey     string
-	Buckets       []string // empty = any valid bucket name
-	MaxObjectSize int64    // 0 = unlimited
-	MaxTotalSize  int64    // 0 = unlimited; enforced by the janitor, oldest objects first
-	TTL           time.Duration
+	Buckets       []string      // empty = any valid bucket name
+	MaxObjectSize int64         // 0 = unlimited
+	MaxTotalSize  int64         // 0 = unlimited; enforced by the janitor, least recently used first
+	TTL           time.Duration // since the last upload or read
 	Debug         bool
 	Metrics       bool // serve /metrics on the cache listener
 }
@@ -113,6 +113,7 @@ func (s *Server) get(w http.ResponseWriter, r *http.Request, bucket, key string)
 		return
 	}
 	defer func() { _ = f.Close() }()
+	s.store.touch(bucket, key, s.now())
 
 	h := w.Header()
 	ct := meta.ContentType
