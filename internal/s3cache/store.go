@@ -140,42 +140,55 @@ func (s *store) put(bucket, key string, body io.Reader, size int64, meta objectM
 		return "", err
 	}
 
+	meta.ETag = `"` + hex.EncodeToString(h.Sum(nil)) + `"`
+	metaTmp, err := s.stageMeta(meta)
+	if err != nil {
+		return "", fmt.Errorf("writing metadata: %w", err)
+	}
+	defer func() { _ = os.Remove(metaTmp) }()
+
 	dst := s.dataPath(bucket, key)
 	if fi, err := os.Stat(dst); err == nil && fi.IsDir() {
 		return "", errConflict
 	}
+	// Drop the old sidecar before replacing the data: if the new sidecar then fails to land,
+	// the object is served without an ETag instead of with the previous upload's.
+	metaDst := s.metaPath(bucket, key)
+	if err := os.Remove(metaDst); err != nil && !errors.Is(err, os.ErrNotExist) && !errors.Is(err, syscall.ENOTDIR) {
+		return "", fmt.Errorf("removing old metadata: %w", err)
+	}
 	if err := place(tmpName, dst); err != nil {
 		return "", err
 	}
-
-	meta.ETag = `"` + hex.EncodeToString(h.Sum(nil)) + `"`
-	if err := s.writeMeta(bucket, key, meta); err != nil {
+	if err := place(metaTmp, metaDst); err != nil {
 		return "", fmt.Errorf("writing metadata: %w", err)
 	}
 	return meta.ETag, nil
 }
 
-func (s *store) writeMeta(bucket, key string, meta objectMeta) error {
+// stageMeta writes meta to a temporary file under tmpDir and returns its path.
+func (s *store) stageMeta(meta objectMeta) (string, error) {
 	raw, err := json.Marshal(meta)
 	if err != nil {
-		return err
+		return "", err
 	}
-	dst := s.metaPath(bucket, key)
 	tmp, err := os.CreateTemp(filepath.Join(s.root, tmpDir), "meta-*")
 	if err != nil {
-		return err
+		return "", err
 	}
-	tmpName := tmp.Name()
-	defer func() { _ = os.Remove(tmpName) }()
 	_, err = tmp.Write(raw)
 	if cerr := tmp.Close(); err == nil {
 		err = cerr
 	}
 	if err != nil {
-		return err
+		_ = os.Remove(tmp.Name())
+		return "", err
 	}
-	return place(tmpName, dst)
+	return tmp.Name(), nil
 }
+
+// rename is os.Rename; tests replace it to fail a specific placement.
+var rename = os.Rename
 
 // place renames src to dst, retrying once if the janitor pruned dst's freshly created parent.
 func place(src, dst string) error {
@@ -184,7 +197,7 @@ func place(src, dst string) error {
 		if err = mkdirParent(dst); err != nil {
 			return err
 		}
-		if err = os.Rename(src, dst); !errors.Is(err, os.ErrNotExist) {
+		if err = rename(src, dst); !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 	}

@@ -2,6 +2,7 @@ package s3cache
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -219,6 +220,28 @@ func TestPutOverwriteAndConflict(t *testing.T) {
 	}
 	if w := do(t, s, http.MethodGet, "/b-1/dir", http.MethodGet, nil, nil); w.Code != http.StatusNotFound {
 		t.Fatalf("GET on a directory: %d", w.Code)
+	}
+}
+
+func TestPutSidecarFailureDropsStaleETag(t *testing.T) {
+	s := newTestServer(t, nil)
+	putObject(t, s, "/b-1/k", []byte("v1"), nil)
+	oldETag := do(t, s, http.MethodHead, "/b-1/k", http.MethodHead, nil, nil).Header().Get("ETag")
+
+	rename = func(src, dst string) error {
+		if strings.HasSuffix(dst, ".json") {
+			return errors.New("injected sidecar failure")
+		}
+		return os.Rename(src, dst)
+	}
+	t.Cleanup(func() { rename = os.Rename })
+	if w := putObject(t, s, "/b-1/k", []byte("v2"), nil); w.Code != http.StatusInternalServerError {
+		t.Fatalf("PUT with a failing sidecar: %d", w.Code)
+	}
+
+	w := do(t, s, http.MethodGet, "/b-1/k", http.MethodGet, nil, nil)
+	if w.Body.String() != "v2" || w.Header().Get("ETag") == oldETag {
+		t.Fatalf("new data must not carry the old ETag: body=%q etag=%q old=%q", w.Body.String(), w.Header().Get("ETag"), oldETag)
 	}
 }
 
