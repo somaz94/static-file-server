@@ -9,7 +9,7 @@ revisionHistoryLimit: 3
 image:
   repository: somaz940/static-file-server
   pullPolicy: IfNotPresent
-  tag: "v0.10.0"
+  tag: "v0.11.0"
 
 imagePullSecrets: []
 
