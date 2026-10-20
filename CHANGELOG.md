@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.11.0](https://github.com/somaz94/static-file-server/compare/v0.10.0...v0.11.0) (2026-10-20)
+
+### Features
+
+- **config:** fail on unknown keys in the YAML config file ([3291ed2](https://github.com/somaz94/static-file-server/commit/3291ed2977fff450d870ff569e7e6abde78054b4))
+- **helm:** validate values with a JSON schema, allow null resources/securityContext, disable service links ([3721ca8](https://github.com/somaz94/static-file-server/commit/3721ca8f5809af386e844e7d906d25deec5e9ef0))
+- **log:** log everything through one slog logger; text request lines are now logfmt and S3 denials debug-only ([d9ba79d](https://github.com/somaz94/static-file-server/commit/d9ba79d96626ac924ffcac304cb5cb3a9d5d8101))
+- **config:** fail on malformed typed env values instead of ignoring them ([105c79a](https://github.com/somaz94/static-file-server/commit/105c79ad85d3e5d52fa992eb830092252e73d4f2))
+
+### Bug Fixes
+
+- **s3cache:** never serve a replaced object with the previous upload's ETag ([204be4c](https://github.com/somaz94/static-file-server/commit/204be4cbd79baa8a1a5c06f648daec73f18affb6))
+
+### Code Refactoring
+
+- share TLS version parsing and drop a dead batch path check and a duplicate listing type ([170565f](https://github.com/somaz94/static-file-server/commit/170565fe0919687389aae734c620362649b2fae9))
+- **server:** take a context in Run and shut listeners down in parallel ([dca58c4](https://github.com/somaz94/static-file-server/commit/dca58c4a1d560d8b4032082ae7e7836ea0fbf9f4))
+
+### Tests
+
+- **helm:** match schema errors by key name across Helm versions ([5b0ef0c](https://github.com/somaz94/static-file-server/commit/5b0ef0c7084893ddc27f5c18692126afecf7e1e7))
+
+### Chores
+
+- bump version to v0.11.0 ([9407f78](https://github.com/somaz94/static-file-server/commit/9407f78e3a022abc3d99f14522dbf8757c1b616f))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.10.0](https://github.com/somaz94/static-file-server/compare/v0.9.0...v0.10.0) (2026-10-20)
 
 ### Features
