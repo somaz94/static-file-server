@@ -2,9 +2,11 @@ package handler
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -839,22 +841,144 @@ func TestWithCompressionSkipRange(t *testing.T) {
 }
 
 func TestWithCompressionSkipBinary(t *testing.T) {
-	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("binary"))
-	})
-	h := withCompression(inner)
-
-	binaryPaths := []string{"/app.apk", "/image.jpg", "/video.mp4", "/archive.zip"}
-	for _, p := range binaryPaths {
+	types := map[string]string{
+		"/app.apk":      "application/vnd.android.package-archive",
+		"/image.jpg":    "image/jpeg",
+		"/video.mp4":    "video/mp4",
+		"/archive.zip":  "application/zip",
+		"/blob.unknown": "application/octet-stream",
+	}
+	for p, ct := range types {
 		t.Run(p, func(t *testing.T) {
+			h := withCompression(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", ct)
+				w.Write([]byte("binary"))
+			}))
 			req := httptest.NewRequest("GET", p, nil)
 			req.Header.Set("Accept-Encoding", "gzip")
 			w := httptest.NewRecorder()
 			h.ServeHTTP(w, req)
-			if w.Header().Get("Content-Encoding") == "gzip" {
-				t.Errorf("should not compress %s", p)
+			if w.Header().Get("Content-Encoding") == "gzip" || w.Body.String() != "binary" {
+				t.Errorf("should not compress %s (%s)", p, ct)
 			}
 		})
+	}
+}
+
+func TestCompressibleType(t *testing.T) {
+	for ct, want := range map[string]bool{
+		"text/html; charset=utf-8": true,
+		"application/json":         true,
+		"text/javascript":          true,
+		"image/svg+xml":            true,
+		"application/ld+json":      true,
+		"application/zip":          false,
+		"image/png":                false,
+		"application/octet-stream": false,
+		"":                         false,
+		"not a media type;;":       false,
+	} {
+		if got := compressibleType(ct); got != want {
+			t.Errorf("compressibleType(%q) = %t, want %t", ct, got, want)
+		}
+	}
+}
+
+func TestWithCompressionSniffsUntypedBody(t *testing.T) {
+	h := withCompression(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("plain text without a declared type"))
+	}))
+	req := httptest.NewRequest("GET", "/notes", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Header().Get("Content-Encoding") != "gzip" {
+		t.Fatalf("sniffed text should be compressed: %v", w.Header())
+	}
+	zr, err := gzip.NewReader(w.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body, _ := io.ReadAll(zr); string(body) != "plain text without a declared type" {
+		t.Fatalf("round trip: %q", body)
+	}
+}
+
+func TestWithCompressionSkipsNonOK(t *testing.T) {
+	h := withCompression(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "missing", http.StatusNotFound)
+	}))
+	req := httptest.NewRequest("GET", "/x.txt", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Header().Get("Content-Encoding") != "" {
+		t.Fatal("error responses should not be compressed")
+	}
+}
+
+// readFromRecorder records whether ReadFrom reached the underlying writer (the sendfile path).
+type readFromRecorder struct {
+	*httptest.ResponseRecorder
+	readFrom bool
+}
+
+func (r *readFromRecorder) ReadFrom(src io.Reader) (int64, error) {
+	r.readFrom = true
+	return io.Copy(r.ResponseRecorder, src)
+}
+
+func TestWithCompressionReadFrom(t *testing.T) {
+	for _, tt := range []struct {
+		ct           string
+		wantGzip     bool
+		wantReadFrom bool
+	}{
+		{"application/vnd.android.package-archive", false, true},
+		{"text/plain", true, false},
+	} {
+		h := withCompression(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", tt.ct)
+			w.(io.ReaderFrom).ReadFrom(strings.NewReader("payload"))
+		}))
+		req := httptest.NewRequest("GET", "/f", nil)
+		req.Header.Set("Accept-Encoding", "gzip")
+		rec := &readFromRecorder{ResponseRecorder: httptest.NewRecorder()}
+		h.ServeHTTP(rec, req)
+		if (rec.Header().Get("Content-Encoding") == "gzip") != tt.wantGzip || rec.readFrom != tt.wantReadFrom {
+			t.Errorf("%s: gzip=%q readFrom=%t", tt.ct, rec.Header().Get("Content-Encoding"), rec.readFrom)
+		}
+	}
+}
+
+func TestBuildCompressionHEADKeepsLength(t *testing.T) {
+	dir := setupTestDir(t)
+	cfg := config.Default()
+	cfg.Folder = dir
+	cfg.Compression = true
+	h := Build(cfg, slog.New(slog.DiscardHandler))
+
+	info, err := os.Stat(filepath.Join(dir, "hello.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("HEAD", "/hello.txt", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if got := w.Header().Get("Content-Length"); got != fmt.Sprint(info.Size()) || w.Header().Get("Content-Encoding") != "" {
+		t.Fatalf("HEAD should report the identity length %d: %v", info.Size(), w.Header())
+	}
+	if w.Header().Get("Vary") != "Accept-Encoding" {
+		t.Errorf("HEAD of a compressible file should still vary on Accept-Encoding: %v", w.Header())
+	}
+
+	req = httptest.NewRequest("GET", "/hello.txt", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Header().Get("Content-Encoding") != "gzip" || w.Header().Get("Content-Length") != "" {
+		t.Fatalf("GET should be compressed without a Content-Length: %v", w.Header())
 	}
 }
 
@@ -1118,5 +1242,61 @@ func TestWithMetricsBoundsMethodLabel(t *testing.T) {
 	body := w.Body.String()
 	if !strings.Contains(body, `static_file_server_requests_total{method="OTHER",status="200"} 3`) || strings.Contains(body, "XYZRANDOM") {
 		t.Fatalf("unknown methods must collapse into OTHER:\n%s", body)
+	}
+}
+
+func TestAcceptsGzip(t *testing.T) {
+	for h, want := range map[string]bool{
+		"gzip":                true,
+		"gzip, deflate, br":   true,
+		"deflate, GZIP;q=0.5": true,
+		"gzip;q=0":            false,
+		"gzip; q=0.000":       false,
+		"deflate":             false,
+		"":                    false,
+	} {
+		if got := acceptsGzip(h); got != want {
+			t.Errorf("acceptsGzip(%q) = %t, want %t", h, got, want)
+		}
+	}
+}
+
+func TestWithCompressionNotModifiedVaries(t *testing.T) {
+	h := withCompression(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotModified)
+	}))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "/x.txt", nil))
+	if w.Code != http.StatusNotModified || w.Header().Get("Vary") != "Accept-Encoding" {
+		t.Fatalf("304 should carry Vary: %d %v", w.Code, w.Header())
+	}
+}
+
+func TestWithCompressionInformationalThenOK(t *testing.T) {
+	h := withCompression(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusEarlyHints)
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte("<html>hello</html>"))
+	}))
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Header().Get("Content-Encoding") != "gzip" {
+		t.Fatalf("the final 200 after a 1xx should still be compressed: %v", w.Header())
+	}
+}
+
+func TestWithCompressionRespectsExplicitNoType(t *testing.T) {
+	h := withCompression(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header()["Content-Type"] = nil // net/http's "do not sniff"
+		w.Write([]byte("plain text"))
+	}))
+	req := httptest.NewRequest("GET", "/x", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Header().Get("Content-Encoding") != "" {
+		t.Fatalf("an explicitly untyped body must not be sniffed into compression: %v", w.Header())
 	}
 }

@@ -5,12 +5,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/somaz94/static-file-server/internal/config"
 )
 
 func TestBuildBreadcrumbs(t *testing.T) {
@@ -771,5 +774,25 @@ func TestRenderListingJSONEmptyDir(t *testing.T) {
 
 	if !strings.Contains(w.Body.String(), `"entries": []`) {
 		t.Errorf("empty directory should list entries as [], got %s", w.Body.String())
+	}
+}
+
+func TestBatchDownloadNotGzippedTwice(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0644)
+	cfg := config.Default()
+	cfg.Folder = dir
+	cfg.Compression = true
+	h := Build(cfg, slog.New(slog.DiscardHandler))
+
+	req := httptest.NewRequest("POST", "/?batch=zip", strings.NewReader(`{"files":["a.txt"]}`))
+	req.Header.Set("Accept-Encoding", "gzip")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusOK || w.Header().Get("Content-Encoding") != "" {
+		t.Fatalf("a zip archive must not be gzipped again: %d %v", w.Code, w.Header())
+	}
+	if _, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len())); err != nil {
+		t.Fatalf("body is not a readable zip: %v", err)
 	}
 }

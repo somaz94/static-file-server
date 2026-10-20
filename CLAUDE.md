@@ -85,7 +85,7 @@ make pr title="..."   # Test + push + create PR
 | `ACCESS_KEY` | string | `""` | URL parameter access key (SHA-256 code support) |
 | `CUSTOM_HEADERS` | string | `""` | Comma-separated `Key:Value` custom response headers |
 | `SPA` | bool | `false` | SPA mode: serve index.html for non-file routes |
-| `COMPRESSION` | bool | `false` | Enable gzip compression (skips binary/Range) |
+| `COMPRESSION` | bool | `false` | Gzip text-like 200 responses by `Content-Type` (not binaries, HEAD or Range) |
 | `HIDE_DOT_FILES` | bool | `false` | Hide dot files from serving and listings |
 | `LOG_FORMAT` | string | `text` | Format of every log line (one `log/slog` logger, stderr): `text` or `json` |
 | `METRICS` | bool | `false` | Enable Prometheus metrics at `/metrics` (cumulative histogram with `_sum`/`_count`) |

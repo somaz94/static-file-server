@@ -27,7 +27,7 @@ static-file-server supports three configuration methods. Priority (highest to lo
 | `ACCESS_KEY` | string | `""` | URL parameter access key |
 | `CUSTOM_HEADERS` | string | `""` | Comma-separated `Key:Value` custom response headers (e.g. `X-Frame-Options:DENY,Cache-Control:no-cache`) |
 | `SPA` | bool | `false` | SPA mode: serve `index.html` for all non-file routes (incompatible with `SHOW_LISTING=true`) |
-| `COMPRESSION` | bool | `false` | Enable gzip compression (skips binary files and Range requests) |
+| `COMPRESSION` | bool | `false` | Gzip text-like `200` responses, chosen by `Content-Type` (never binaries, `HEAD` or Range requests) |
 | `HIDE_DOT_FILES` | bool | `false` | Hide dot files/directories (e.g. `.env`, `.git`) from serving and listings |
 | `LOG_FORMAT` | string | `text` | Log format for every log line: `text` (default) or `json` |
 | `METRICS` | bool | `false` | Enable Prometheus-compatible metrics at `/metrics` |
@@ -230,8 +230,9 @@ Compress text-based responses (HTML, CSS, JS, JSON, etc.) to reduce transfer siz
 COMPRESSION=true static-file-server
 ```
 
-Compression is automatically skipped for:
-- Already compressed files (`.apk`, `.jpg`, `.mp4`, `.zip`, `.gz`, `.woff2`, etc.)
+Whether a response is compressed is decided from its final `Content-Type`, not the file extension: `text/*`, JSON, JavaScript, XML and SVG are compressed; images, video, archives (including the batch-download zip), APKs and unknown binaries are not. Compression is also skipped for:
+- Responses other than `200` (errors, `304`, `206`)
+- `HEAD` requests, which report the uncompressed `Content-Length`
 - Range requests (partial downloads / resume)
 - Clients that don't send `Accept-Encoding: gzip`
 
