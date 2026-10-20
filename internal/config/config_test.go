@@ -1,6 +1,8 @@
 package config
 
 import (
+	"bytes"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -258,53 +260,46 @@ func TestListenAddr(t *testing.T) {
 	}
 }
 
-func TestSummary(t *testing.T) {
-	cfg := Default()
-	s := cfg.Summary()
+// logged renders cfg the way the debug startup log does.
+func logged(cfg *Config) string {
+	var buf bytes.Buffer
+	slog.New(slog.NewTextHandler(&buf, nil)).Info("configuration", "config", cfg)
+	return buf.String()
+}
 
-	expected := []string{
-		"Configuration:",
-		"CORS:         false",
-		"Debug:        false",
-		`Host:         ""`,
-		"Port:         8080",
-		"Folder:       /web",
-		"AllowIndex:   true",
-		"ShowListing:  true",
-		`URLPrefix:    ""`,
-		"TLS:          false",
-		"AccessKey:    false",
-	}
-	for _, e := range expected {
+func TestLogValue(t *testing.T) {
+	s := logged(Default())
+	for _, e := range []string{
+		"config.cors=false", "config.debug=false", `config.host=""`, "config.port=8080",
+		"config.folder=/web", "config.allow_index=true", "config.show_listing=true",
+		"config.tls=false", "config.access_key=false",
+	} {
 		if !strings.Contains(s, e) {
-			t.Errorf("Summary missing %q", e)
+			t.Errorf("log missing %q: %s", e, s)
 		}
 	}
 }
 
-func TestSummaryWithValues(t *testing.T) {
+func TestLogValueWithValues(t *testing.T) {
 	cfg := Default()
 	cfg.CORS = true
-	cfg.Debug = true
-	cfg.Host = "localhost"
 	cfg.TLSCert = "/cert.pem"
 	cfg.TLSKey = "/key.pem"
 	cfg.AccessKey = "secret"
 	cfg.Referrers = []string{"https://a.com", "https://b.com"}
+	cfg.CustomHeaders = map[string]string{"X-Token": "header-sentinel"}
 
-	s := cfg.Summary()
-
-	if !strings.Contains(s, "CORS:         true") {
-		t.Error("Summary should show CORS true")
+	s := logged(cfg)
+	if strings.Contains(s, "header-sentinel") {
+		t.Errorf("log must not print custom header values: %s", s)
 	}
-	if !strings.Contains(s, "TLS:          true") {
-		t.Error("Summary should show TLS true")
+	for _, e := range []string{"config.cors=true", "config.tls=true", "config.access_key=true", "https://a.com", "X-Token"} {
+		if !strings.Contains(s, e) {
+			t.Errorf("log missing %q: %s", e, s)
+		}
 	}
-	if !strings.Contains(s, "AccessKey:    true") {
-		t.Error("Summary should show AccessKey true")
-	}
-	if !strings.Contains(s, "https://a.com") {
-		t.Error("Summary should show referrers")
+	if strings.Contains(s, "secret") {
+		t.Errorf("log must not print the access key: %s", s)
 	}
 }
 

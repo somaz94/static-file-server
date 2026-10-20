@@ -3,6 +3,7 @@ package s3cache
 import (
 	"bytes"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -264,9 +265,24 @@ func TestHealthz(t *testing.T) {
 }
 
 func TestDebugLogging(t *testing.T) {
-	s := newTestServer(t, func(o *Options) { o.Debug = true })
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	s := newTestServer(t, func(o *Options) { o.Logger = logger })
 	if w := do(t, s, http.MethodGet, "/b-1/k", http.MethodGet, nil, nil); w.Code != http.StatusNotFound {
 		t.Fatalf("GET: %d", w.Code)
+	}
+	if !strings.Contains(buf.String(), `msg="s3cache request"`) || !strings.Contains(buf.String(), "status=404") {
+		t.Fatalf("debug request log missing: %s", buf.String())
+	}
+
+	buf.Reset()
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://"+testHost+"/b-1/k", nil))
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("unsigned GET: %d", w.Code)
+	}
+	if !strings.Contains(buf.String(), `msg="s3cache denied"`) || !strings.Contains(buf.String(), "level=DEBUG") {
+		t.Fatalf("denied log should be at debug level: %s", buf.String())
 	}
 }
 

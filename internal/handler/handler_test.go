@@ -1,14 +1,18 @@
 package handler
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/somaz94/static-file-server/internal/config"
 )
@@ -342,7 +346,7 @@ func TestBuild(t *testing.T) {
 	cfg.Folder = dir
 	cfg.CORS = true
 
-	h := Build(cfg)
+	h := Build(cfg, slog.New(slog.DiscardHandler))
 
 	req := httptest.NewRequest("GET", "/hello.txt", nil)
 	w := httptest.NewRecorder()
@@ -360,7 +364,8 @@ func TestWithLoggingText(t *testing.T) {
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	h := withLogging(inner, "text")
+	var buf bytes.Buffer
+	h := withLogging(inner, slog.New(slog.NewTextHandler(&buf, nil)))
 
 	req := httptest.NewRequest("GET", "/test-path", nil)
 	req.Header.Set("Referer", "https://example.com")
@@ -370,13 +375,19 @@ func TestWithLoggingText(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
+	for _, want := range []string{"msg=request", "path=/test-path", "status=200", "referer=https://example.com"} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("log line missing %q: %s", want, buf.String())
+		}
+	}
 }
 
 func TestWithLoggingJSON(t *testing.T) {
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	h := withLogging(inner, "json")
+	var buf bytes.Buffer
+	h := withLogging(inner, slog.New(slog.NewJSONHandler(&buf, nil)))
 
 	req := httptest.NewRequest("GET", "/test-path", nil)
 	w := httptest.NewRecorder()
@@ -384,6 +395,49 @@ func TestWithLoggingJSON(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", w.Code)
+	}
+	var entry map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
+		t.Fatalf("log line is not JSON: %v: %s", err, buf.String())
+	}
+	// The pre-slog request log keys stay, so existing log pipelines keep parsing them.
+	for _, key := range []string{"time", "remote", "method", "path", "proto", "host", "status", "duration_ms"} {
+		if _, ok := entry[key]; !ok {
+			t.Errorf("JSON log missing %q: %s", key, buf.String())
+		}
+	}
+	if _, ok := entry["referer"]; ok {
+		t.Errorf("empty referer should be omitted: %s", buf.String())
+	}
+}
+
+func TestBuildLogsRequestsOnlyWithDebug(t *testing.T) {
+	for _, debug := range []bool{false, true} {
+		var buf bytes.Buffer
+		cfg := config.Default()
+		cfg.Folder = setupTestDir(t)
+		cfg.Debug = debug
+		h := Build(cfg, slog.New(slog.NewTextHandler(&buf, nil)))
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+		if got := strings.Contains(buf.String(), "msg=request"); got != debug {
+			t.Errorf("debug=%t: request logged=%t: %s", debug, got, buf.String())
+		}
+	}
+}
+
+func TestWithLoggingUsesStartTime(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(20 * time.Millisecond)
+	})
+	var buf bytes.Buffer
+	before := time.Now()
+	withLogging(inner, slog.New(slog.NewJSONHandler(&buf, nil))).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+	var entry struct{ Time time.Time }
+	if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
+		t.Fatal(err)
+	}
+	if entry.Time.Sub(before) > 10*time.Millisecond {
+		t.Fatalf("time should be the request start, got %s after it", entry.Time.Sub(before))
 	}
 }
 
@@ -399,7 +453,7 @@ func TestBuildAllCombinations(t *testing.T) {
 	cfg.AccessKey = "key123"
 	cfg.Referrers = []string{"https://example.com", ""}
 
-	h := Build(cfg)
+	h := Build(cfg, slog.New(slog.DiscardHandler))
 
 	// Valid request with all middleware
 	req := httptest.NewRequest("GET", "/pfx/hello.txt?key=key123", nil)
@@ -421,7 +475,7 @@ func TestBuildListingOnly(t *testing.T) {
 	cfg.ShowListing = true
 	cfg.AllowIndex = false
 
-	h := Build(cfg)
+	h := Build(cfg, slog.New(slog.DiscardHandler))
 
 	// Directory should show listing, not index.html
 	req := httptest.NewRequest("GET", "/", nil)
@@ -443,7 +497,7 @@ func TestBuildIndexOnly(t *testing.T) {
 	cfg.ShowListing = false
 	cfg.AllowIndex = true
 
-	h := Build(cfg)
+	h := Build(cfg, slog.New(slog.DiscardHandler))
 
 	// Root with index.html should serve it
 	req := httptest.NewRequest("GET", "/", nil)
@@ -465,7 +519,7 @@ func TestBuildBasicOnly(t *testing.T) {
 	cfg.ShowListing = false
 	cfg.AllowIndex = false
 
-	h := Build(cfg)
+	h := Build(cfg, slog.New(slog.DiscardHandler))
 
 	// File should work
 	req := httptest.NewRequest("GET", "/hello.txt", nil)
@@ -550,7 +604,7 @@ func TestHealthz(t *testing.T) {
 	cfg := config.Default()
 	cfg.Folder = dir
 
-	h := Build(cfg)
+	h := Build(cfg, slog.New(slog.DiscardHandler))
 
 	req := httptest.NewRequest("GET", "/healthz", nil)
 	w := httptest.NewRecorder()
@@ -573,7 +627,7 @@ func TestHealthzBypassesMiddleware(t *testing.T) {
 	cfg.Folder = dir
 	cfg.AccessKey = "secret"
 
-	h := Build(cfg)
+	h := Build(cfg, slog.New(slog.DiscardHandler))
 
 	// /healthz should work even with access key required
 	req := httptest.NewRequest("GET", "/healthz", nil)
@@ -665,7 +719,7 @@ func TestBuildSPA(t *testing.T) {
 	cfg.SPA = true
 	cfg.ShowListing = false
 
-	h := Build(cfg)
+	h := Build(cfg, slog.New(slog.DiscardHandler))
 
 	req := httptest.NewRequest("GET", "/any/route", nil)
 	w := httptest.NewRecorder()
@@ -813,7 +867,7 @@ func TestResponseRecorderFlush(t *testing.T) {
 			f.Flush()
 		}
 	})
-	h := withLogging(inner, "text")
+	h := withLogging(inner, slog.New(slog.DiscardHandler))
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()
@@ -906,7 +960,7 @@ func TestBuildWithMetrics(t *testing.T) {
 	cfg.Folder = dir
 	cfg.Metrics = true
 
-	h := Build(cfg)
+	h := Build(cfg, slog.New(slog.DiscardHandler))
 
 	// Normal request to populate metrics
 	req := httptest.NewRequest("GET", "/hello.txt", nil)
@@ -943,7 +997,7 @@ func TestBuildWithCompression(t *testing.T) {
 	cfg.Folder = dir
 	cfg.Compression = true
 
-	h := Build(cfg)
+	h := Build(cfg, slog.New(slog.DiscardHandler))
 
 	req := httptest.NewRequest("GET", "/hello.txt", nil)
 	req.Header.Set("Accept-Encoding", "gzip")
@@ -963,7 +1017,7 @@ func TestBuildWithHideDotFiles(t *testing.T) {
 	cfg.Folder = dir
 	cfg.HideDotFiles = true
 
-	h := Build(cfg)
+	h := Build(cfg, slog.New(slog.DiscardHandler))
 
 	req := httptest.NewRequest("GET", "/.secret", nil)
 	w := httptest.NewRecorder()

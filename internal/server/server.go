@@ -6,6 +6,8 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -26,6 +28,19 @@ const (
 	s3ReadHeaderTimeout = 10 * time.Second
 )
 
+// NewLogger returns the process logger: LOG_FORMAT picks text or JSON, DEBUG enables
+// the debug level (request logs and the startup configuration).
+func NewLogger(w io.Writer, cfg *config.Config) *slog.Logger {
+	opts := &slog.HandlerOptions{Level: slog.LevelInfo}
+	if cfg.Debug {
+		opts.Level = slog.LevelDebug
+	}
+	if cfg.LogFormat == "json" {
+		return slog.New(slog.NewJSONHandler(w, opts))
+	}
+	return slog.New(slog.NewTextHandler(w, opts))
+}
+
 // namedServer pairs a server with the label used in lifecycle logs.
 type namedServer struct {
 	srv   *http.Server
@@ -36,20 +51,24 @@ type namedServer struct {
 // down gracefully when ctx is cancelled. In cache-only mode only the S3 cache endpoint
 // starts.
 func Run(ctx context.Context, cfg *config.Config) error {
-	if cfg.Debug {
-		fmt.Fprint(os.Stdout, cfg.Summary())
-	}
+	return run(ctx, cfg, NewLogger(os.Stderr, cfg))
+}
+
+func run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
+	logger.Debug("configuration", "config", cfg)
+	errorLog := slog.NewLogLogger(logger.Handler(), slog.LevelWarn)
 
 	var servers []namedServer
 	if !cfg.CacheOnly {
 		servers = append(servers, namedServer{
 			srv: &http.Server{
 				Addr:    cfg.ListenAddr(),
-				Handler: handler.Build(cfg),
+				Handler: handler.Build(cfg, logger),
 				// No WriteTimeout: it caps the whole response, so it cut off any download slower than its value.
 				ReadHeaderTimeout: readTimeout,
 				ReadTimeout:       readTimeout,
 				IdleTimeout:       idleTimeout,
+				ErrorLog:          errorLog,
 			},
 			label: cfg.Folder,
 		})
@@ -72,8 +91,8 @@ func Run(ctx context.Context, cfg *config.Config) error {
 			MaxObjectSize: cfg.S3MaxObjectSize,
 			MaxTotalSize:  cfg.S3MaxTotalSize,
 			TTL:           cfg.S3TTL,
-			Debug:         cfg.Debug,
 			Metrics:       cfg.Metrics,
+			Logger:        logger,
 		})
 		janitor.Go(func() { s3.RunJanitor(janitorCtx) })
 		servers = append(servers, namedServer{
@@ -82,6 +101,7 @@ func Run(ctx context.Context, cfg *config.Config) error {
 				Handler:           s3,
 				ReadHeaderTimeout: s3ReadHeaderTimeout,
 				IdleTimeout:       idleTimeout,
+				ErrorLog:          errorLog,
 			},
 			label: "S3 cache " + cfg.S3Folder,
 		})
@@ -99,22 +119,22 @@ func Run(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
-	return listenAndServe(ctx, cfg, servers)
+	return listenAndServe(ctx, cfg, logger, servers)
 }
 
 // listenAndServe starts every server and shuts all of them down gracefully when ctx is
 // cancelled, or when any one of them fails.
-func listenAndServe(ctx context.Context, cfg *config.Config, servers []namedServer) error {
+func listenAndServe(ctx context.Context, cfg *config.Config, logger *slog.Logger, servers []namedServer) error {
 	errCh := make(chan error, len(servers))
 
 	for _, s := range servers {
 		go func() {
 			var err error
 			if cfg.HasTLS() {
-				fmt.Fprintf(os.Stdout, "Serving %s on HTTPS %s\n", s.label, s.srv.Addr)
+				logger.Info("serving", "listener", s.label, "scheme", "https", "addr", s.srv.Addr)
 				err = s.srv.ListenAndServeTLS(cfg.TLSCert, cfg.TLSKey)
 			} else {
-				fmt.Fprintf(os.Stdout, "Serving %s on HTTP %s\n", s.label, s.srv.Addr)
+				logger.Info("serving", "listener", s.label, "scheme", "http", "addr", s.srv.Addr)
 				err = s.srv.ListenAndServe()
 			}
 			errCh <- fmt.Errorf("%s: %w", s.label, err)
@@ -126,11 +146,11 @@ func listenAndServe(ctx context.Context, cfg *config.Config, servers []namedServ
 		_ = shutdownAll(servers)
 		return err
 	case <-ctx.Done():
-		fmt.Fprintf(os.Stdout, "\nReceived %v, shutting down gracefully...\n", context.Cause(ctx))
+		logger.Info("shutting down", "cause", context.Cause(ctx))
 		if err := shutdownAll(servers); err != nil {
 			return fmt.Errorf("graceful shutdown failed: %w", err)
 		}
-		fmt.Fprintln(os.Stdout, "Server stopped")
+		logger.Info("server stopped")
 		return nil
 	}
 }

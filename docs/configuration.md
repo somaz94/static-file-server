@@ -13,7 +13,7 @@ static-file-server supports three configuration methods. Priority (highest to lo
 | Variable | Type | Default | Description |
 |---|---|---|---|
 | `CORS` | bool | `false` | Enable CORS headers (`Access-Control-Allow-Origin: *`) |
-| `DEBUG` | bool | `false` | Enable debug logging (config summary on startup + per-request log) |
+| `DEBUG` | bool | `false` | Enable debug logging (configuration on startup + per-request log) |
 | `HOST` | string | `""` | Hostname to bind (empty = all interfaces) |
 | `PORT` | uint16 | `8080` | Port number |
 | `FOLDER` | string | `/web` | Root folder to serve |
@@ -29,7 +29,7 @@ static-file-server supports three configuration methods. Priority (highest to lo
 | `SPA` | bool | `false` | SPA mode: serve `index.html` for all non-file routes (incompatible with `SHOW_LISTING=true`) |
 | `COMPRESSION` | bool | `false` | Enable gzip compression (skips binary files and Range requests) |
 | `HIDE_DOT_FILES` | bool | `false` | Hide dot files/directories (e.g. `.env`, `.git`) from serving and listings |
-| `LOG_FORMAT` | string | `text` | Log format: `text` (default) or `json` (structured logging) |
+| `LOG_FORMAT` | string | `text` | Log format for every log line: `text` (default) or `json` |
 | `METRICS` | bool | `false` | Enable Prometheus-compatible metrics at `/metrics` |
 | `S3_ENABLED` | bool | `false` | Enable the GitLab Runner cache endpoint; see [Runner Cache Endpoint](s3-cache.md) for the `S3_*` variables |
 
@@ -249,15 +249,15 @@ Dot files are also excluded from directory listings when enabled.
 
 ## Structured Logging
 
-Switch debug logs to JSON format for log aggregation (Loki, ELK, CloudWatch):
+All logs go to stderr through one logger: startup and shutdown, request logs, and the runner cache endpoint's errors and janitor sweeps. `LOG_FORMAT=json` switches all of them to JSON for log aggregation (Loki, ELK, CloudWatch). `DEBUG=true` adds the startup configuration, one line per request, and the cache endpoint's per-request and denied-request lines.
 
 ```bash
 DEBUG=true LOG_FORMAT=json static-file-server
 ```
 
-JSON log example:
+JSON request log example:
 ```json
-{"time":"2026-04-13T14:30:00Z","remote":"203.0.113.10:54321","method":"GET","path":"/files/app.apk","proto":"HTTP/1.1","host":"example.com","status":200,"duration_ms":42}
+{"time":"2026-04-13T14:30:00.123Z","level":"INFO","msg":"request","remote":"203.0.113.10:54321","method":"GET","path":"/files/app.apk","proto":"HTTP/1.1","host":"example.com","status":200,"duration_ms":42}
 ```
 
 <br/>

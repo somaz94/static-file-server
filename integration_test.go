@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -45,7 +46,7 @@ func TestIntegration_ListingAndIndex(t *testing.T) {
 	cfg.AllowIndex = true
 	cfg.ShowListing = true
 
-	h := handler.Build(cfg)
+	h := handler.Build(cfg, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
@@ -99,7 +100,7 @@ func TestIntegration_JSONListing(t *testing.T) {
 	cfg.AllowIndex = true
 	cfg.ShowListing = true
 
-	h := handler.Build(cfg)
+	h := handler.Build(cfg, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
@@ -174,7 +175,7 @@ func TestIntegration_StaticFile(t *testing.T) {
 	cfg := config.Default()
 	cfg.Folder = dir
 
-	h := handler.Build(cfg)
+	h := handler.Build(cfg, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
@@ -201,7 +202,7 @@ func TestIntegration_NestedFile(t *testing.T) {
 	cfg := config.Default()
 	cfg.Folder = dir
 
-	h := handler.Build(cfg)
+	h := handler.Build(cfg, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
@@ -225,7 +226,7 @@ func TestIntegration_NotFound(t *testing.T) {
 	cfg := config.Default()
 	cfg.Folder = dir
 
-	h := handler.Build(cfg)
+	h := handler.Build(cfg, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
@@ -246,7 +247,7 @@ func TestIntegration_CORS(t *testing.T) {
 	cfg.Folder = dir
 	cfg.CORS = true
 
-	h := handler.Build(cfg)
+	h := handler.Build(cfg, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
@@ -270,7 +271,7 @@ func TestIntegration_URLPrefix(t *testing.T) {
 	cfg.Folder = dir
 	cfg.URLPrefix = "/static"
 
-	h := handler.Build(cfg)
+	h := handler.Build(cfg, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
@@ -305,7 +306,7 @@ func TestIntegration_AccessKey(t *testing.T) {
 	cfg.Folder = dir
 	cfg.AccessKey = "testkey123"
 
-	h := handler.Build(cfg)
+	h := handler.Build(cfg, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
@@ -350,7 +351,7 @@ func TestIntegration_ReferrerValidation(t *testing.T) {
 	cfg.Folder = dir
 	cfg.Referrers = []string{"https://example.com"}
 
-	h := handler.Build(cfg)
+	h := handler.Build(cfg, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
@@ -388,7 +389,7 @@ func TestIntegration_ListingOnly(t *testing.T) {
 	cfg.AllowIndex = false
 	cfg.ShowListing = true
 
-	h := handler.Build(cfg)
+	h := handler.Build(cfg, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
@@ -416,7 +417,7 @@ func TestIntegration_BasicOnly(t *testing.T) {
 	cfg.AllowIndex = false
 	cfg.ShowListing = false
 
-	h := handler.Build(cfg)
+	h := handler.Build(cfg, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
@@ -446,7 +447,7 @@ func TestIntegration_DirectoryTraversal(t *testing.T) {
 	cfg := config.Default()
 	cfg.Folder = dir
 
-	h := handler.Build(cfg)
+	h := handler.Build(cfg, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
@@ -469,7 +470,7 @@ func TestIntegration_ListingContainsExtIcons(t *testing.T) {
 	cfg.AllowIndex = false
 	cfg.ShowListing = true
 
-	h := handler.Build(cfg)
+	h := handler.Build(cfg, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 

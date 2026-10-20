@@ -5,7 +5,7 @@ package s3cache
 
 import (
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
@@ -23,13 +23,14 @@ type Options struct {
 	MaxObjectSize int64         // 0 = unlimited
 	MaxTotalSize  int64         // 0 = unlimited; enforced by the janitor, least recently used first
 	TTL           time.Duration // since the last upload or read
-	Debug         bool
-	Metrics       bool // serve /metrics on the cache listener
+	Metrics       bool          // serve /metrics on the cache listener
+	Logger        *slog.Logger  // nil = slog.Default()
 }
 
 // Server is the S3 cache HTTP handler.
 type Server struct {
 	opts    Options
+	log     *slog.Logger
 	store   *store
 	metrics *metrics
 	now     func() time.Time
@@ -37,7 +38,11 @@ type Server struct {
 
 // New returns a Server rooted at opts.Folder.
 func New(opts Options) *Server {
-	return &Server{opts: opts, store: &store{root: opts.Folder}, metrics: newMetrics(), now: time.Now}
+	logger := opts.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	return &Server{opts: opts, log: logger, store: &store{root: opts.Folder}, metrics: newMetrics(), now: time.Now}
 }
 
 // ServeHTTP implements http.Handler.
@@ -56,8 +61,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.serve(rec, r)
 	s.metrics.recordRequest(httpx.MetricMethod(r.Method), rec.Status, rec.Bytes)
-	if s.opts.Debug {
-		log.Printf("s3cache %s %s %d %s", r.Method, r.URL.Path, rec.Status, time.Since(start))
+	if s.log.Enabled(r.Context(), slog.LevelDebug) {
+		s.log.LogAttrs(r.Context(), slog.LevelDebug, "s3cache request",
+			slog.String("method", r.Method), slog.String("path", r.URL.Path),
+			slog.Int("status", rec.Status), slog.Int64("duration_ms", time.Since(start).Milliseconds()))
 	}
 }
 
@@ -65,7 +72,8 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	bucket, key, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/"), "/")
 
 	if e := s.authorize(r); e != nil {
-		log.Printf("s3cache: denied %s bucket=%q: %s", r.Method, bucket, e.Message)
+		// Debug, not warn: unsigned probes would flood the log; requests_total{status="403"} counts them.
+		s.log.Debug("s3cache denied", "method", r.Method, "bucket", bucket, "reason", e.Message)
 		e.write(w, r)
 		return
 	}
@@ -110,7 +118,7 @@ func (s *Server) get(w http.ResponseWriter, r *http.Request, bucket, key string)
 			errNoSuchKey().write(w, r)
 			return
 		}
-		log.Printf("s3cache: open %s/%s: %v", bucket, key, err)
+		s.log.Error("s3cache open failed", "bucket", bucket, "key", key, "err", err)
 		errInternal().write(w, r)
 		return
 	}
@@ -156,7 +164,7 @@ func (s *Server) put(w http.ResponseWriter, r *http.Request, bucket, key string)
 	case errors.Is(err, errConflict):
 		errKeyConflict().write(w, r)
 	default:
-		log.Printf("s3cache: put %s/%s: %v", bucket, key, err)
+		s.log.Error("s3cache put failed", "bucket", bucket, "key", key, "err", err)
 		errInternal().write(w, r)
 	}
 }

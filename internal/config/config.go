@@ -5,8 +5,11 @@ package config
 import (
 	"errors"
 	"fmt"
+	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -346,38 +349,43 @@ func (c *Config) ListenAddr() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
 }
 
-// Summary returns a human-readable configuration summary for debug output.
-func (c *Config) Summary() string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "Configuration:\n")
-	fmt.Fprintf(&b, "  CORS:         %t\n", c.CORS)
-	fmt.Fprintf(&b, "  Debug:        %t\n", c.Debug)
-	fmt.Fprintf(&b, "  Host:         %q\n", c.Host)
-	fmt.Fprintf(&b, "  Port:         %d\n", c.Port)
-	fmt.Fprintf(&b, "  Folder:       %s\n", c.Folder)
-	fmt.Fprintf(&b, "  AllowIndex:   %t\n", c.AllowIndex)
-	fmt.Fprintf(&b, "  ShowListing:  %t\n", c.ShowListing)
-	fmt.Fprintf(&b, "  URLPrefix:    %q\n", c.URLPrefix)
-	fmt.Fprintf(&b, "  TLS:          %t\n", c.HasTLS())
-	fmt.Fprintf(&b, "  TLSMinVers:   %q\n", c.TLSMinVers)
-	fmt.Fprintf(&b, "  Referrers:    %v\n", c.Referrers)
-	fmt.Fprintf(&b, "  AccessKey:    %t\n", c.AccessKey != "")
-	fmt.Fprintf(&b, "  CustomHeaders: %v\n", c.CustomHeaders)
-	fmt.Fprintf(&b, "  SPA:          %t\n", c.SPA)
-	fmt.Fprintf(&b, "  Compression:  %t\n", c.Compression)
-	fmt.Fprintf(&b, "  HideDotFiles: %t\n", c.HideDotFiles)
-	fmt.Fprintf(&b, "  LogFormat:    %s\n", c.LogFormat)
-	fmt.Fprintf(&b, "  Metrics:      %t\n", c.Metrics)
-	fmt.Fprintf(&b, "  S3Enabled:    %t\n", c.S3Enabled)
-	if c.S3Enabled {
-		fmt.Fprintf(&b, "  S3Port:       %d\n", c.S3Port)
-		fmt.Fprintf(&b, "  S3Folder:     %s\n", c.S3Folder)
-		fmt.Fprintf(&b, "  S3Buckets:    %v\n", c.S3Buckets)
-		fmt.Fprintf(&b, "  S3TTL:        %s\n", c.S3TTL)
-		fmt.Fprintf(&b, "  S3MaxObjectSize: %d\n", c.S3MaxObjectSize)
-		fmt.Fprintf(&b, "  S3MaxTotalSize:  %d\n", c.S3MaxTotalSize)
+// LogValue implements slog.LogValuer for the debug startup log. Keys are reported only
+// as set or unset.
+func (c *Config) LogValue() slog.Value {
+	attrs := []slog.Attr{
+		slog.Bool("cors", c.CORS),
+		slog.Bool("debug", c.Debug),
+		slog.String("host", c.Host),
+		slog.Int("port", int(c.Port)),
+		slog.String("folder", c.Folder),
+		slog.Bool("allow_index", c.AllowIndex),
+		slog.Bool("show_listing", c.ShowListing),
+		slog.String("url_prefix", c.URLPrefix),
+		slog.Bool("tls", c.HasTLS()),
+		slog.String("tls_min_vers", c.TLSMinVers),
+		slog.Any("referrers", c.Referrers),
+		slog.Bool("access_key", c.AccessKey != ""),
+		// Header names only: a value can carry a token.
+		slog.Any("custom_headers", slices.Sorted(maps.Keys(c.CustomHeaders))),
+		slog.Bool("spa", c.SPA),
+		slog.Bool("compression", c.Compression),
+		slog.Bool("hide_dot_files", c.HideDotFiles),
+		slog.String("log_format", c.LogFormat),
+		slog.Bool("metrics", c.Metrics),
+		slog.Bool("s3_enabled", c.S3Enabled),
 	}
-	return b.String()
+	if c.S3Enabled {
+		attrs = append(attrs,
+			slog.Bool("cache_only", c.CacheOnly),
+			slog.Int("s3_port", int(c.S3Port)),
+			slog.String("s3_folder", c.S3Folder),
+			slog.Any("s3_buckets", c.S3Buckets),
+			slog.Duration("s3_ttl", c.S3TTL),
+			slog.Int64("s3_max_object_size", c.S3MaxObjectSize),
+			slog.Int64("s3_max_total_size", c.S3MaxTotalSize),
+		)
+	}
+	return slog.GroupValue(attrs...)
 }
 
 // parseBool accepts 1, true, t, yes, y and 0, false, f, no, n, case-insensitively.

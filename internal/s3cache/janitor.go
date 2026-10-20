@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -98,8 +97,8 @@ func (s *Server) sweep(now time.Time) {
 	s.metrics.objects.Store(int64(len(objects)))
 	s.metrics.storedBytes.Store(total)
 	if expired > 0 || evicted > 0 {
-		log.Printf("s3cache: janitor removed %d expired and %d over-capacity object(s); %d object(s), %d byte(s) remain",
-			expired, evicted, len(objects), total)
+		s.log.Info("s3cache janitor swept", "expired", expired, "evicted", evicted,
+			"objects", len(objects), "bytes", total)
 	}
 }
 

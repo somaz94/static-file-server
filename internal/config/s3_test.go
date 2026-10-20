@@ -128,20 +128,22 @@ func TestValidateS3(t *testing.T) {
 	}
 }
 
-func TestSummaryS3(t *testing.T) {
+func TestLogValueS3(t *testing.T) {
 	cfg := validS3Config(t)
 	cfg.S3TTL = time.Hour
-	s := cfg.Summary()
-	for _, want := range []string{"S3Enabled:    true", "S3Port:       9000", "S3TTL:        1h0m0s"} {
+	cfg.S3MaxTotalSize = 7
+	cfg.S3AccessKey, cfg.S3SecretKey = "s3-access-sentinel", "s3-secret-sentinel"
+	s := logged(cfg)
+	for _, want := range []string{"config.s3_enabled=true", "config.s3_port=9000", "config.s3_ttl=1h0m0s", "config.s3_max_total_size=7"} {
 		if !strings.Contains(s, want) {
-			t.Errorf("summary missing %q:\n%s", want, s)
+			t.Errorf("log missing %q: %s", want, s)
 		}
 	}
-	if strings.Contains(s, "sk") && strings.Contains(s, "S3SecretKey") {
-		t.Error("summary must not print the secret key")
+	if strings.Contains(s, cfg.S3AccessKey) || strings.Contains(s, cfg.S3SecretKey) {
+		t.Errorf("log must not print the S3 keys: %s", s)
 	}
-	if strings.Contains(Default().Summary(), "S3Port") {
-		t.Error("summary should omit S3 details when disabled")
+	if strings.Contains(logged(Default()), "s3_port") {
+		t.Error("log should omit S3 details when disabled")
 	}
 }
 
@@ -159,10 +161,6 @@ func TestS3MaxTotalSize(t *testing.T) {
 	c.S3MaxTotalSize = -1
 	if err := c.validate(); err == nil || !strings.Contains(err.Error(), "S3_MAX_TOTAL_SIZE") {
 		t.Fatalf("expected S3_MAX_TOTAL_SIZE error, got %v", err)
-	}
-	c.S3MaxTotalSize = 7
-	if !strings.Contains(c.Summary(), "S3MaxTotalSize:  7") {
-		t.Fatalf("summary missing S3MaxTotalSize:\n%s", c.Summary())
 	}
 }
 

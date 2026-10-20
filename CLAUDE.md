@@ -71,7 +71,7 @@ make pr title="..."   # Test + push + create PR
 | Variable | Type | Default | Description |
 |---|---|---|---|
 | `CORS` | bool | `false` | Enable CORS headers for all responses |
-| `DEBUG` | bool | `false` | Enable debug logging (config summary + request log) |
+| `DEBUG` | bool | `false` | Enable debug logging (startup configuration + request log) |
 | `HOST` | string | `""` | Hostname to bind (empty = all interfaces) |
 | `PORT` | uint16 | `8080` | Port number |
 | `FOLDER` | string | `/web` | Root folder to serve |
@@ -87,7 +87,7 @@ make pr title="..."   # Test + push + create PR
 | `SPA` | bool | `false` | SPA mode: serve index.html for non-file routes |
 | `COMPRESSION` | bool | `false` | Enable gzip compression (skips binary/Range) |
 | `HIDE_DOT_FILES` | bool | `false` | Hide dot files from serving and listings |
-| `LOG_FORMAT` | string | `text` | Log format: `text` or `json` |
+| `LOG_FORMAT` | string | `text` | Format of every log line (one `log/slog` logger, stderr): `text` or `json` |
 | `METRICS` | bool | `false` | Enable Prometheus metrics at `/metrics` (cumulative histogram with `_sum`/`_count`) |
 | `S3_ENABLED` | bool | `false` | Enable the GitLab Runner cache endpoint on a separate listener |
 | `S3_PORT` | uint16 | `9000` | Cache endpoint port (must differ from `PORT`) |

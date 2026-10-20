@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -413,4 +414,73 @@ func TestRunNothingToServe(t *testing.T) {
 	if err := Run(t.Context(), cfg); err == nil || !strings.Contains(err.Error(), "nothing to serve") {
 		t.Fatalf("expected a nothing-to-serve error, got %v", err)
 	}
+}
+
+func TestNewLogger(t *testing.T) {
+	tests := []struct {
+		format     string
+		debug      bool
+		wantDebug  bool
+		wantPrefix string
+	}{
+		{"text", false, false, "time="},
+		{"text", true, true, "time="},
+		{"json", false, false, "{"},
+		{"json", true, true, "{"},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s/debug=%t", tt.format, tt.debug), func(t *testing.T) {
+			var buf bytes.Buffer
+			cfg := config.Default()
+			cfg.LogFormat, cfg.Debug = tt.format, tt.debug
+			logger := NewLogger(&buf, cfg)
+			logger.Debug("debug-line")
+			logger.Info("info-line")
+			out := buf.String()
+			if strings.Contains(out, "debug-line") != tt.wantDebug || !strings.Contains(out, "info-line") || !strings.HasPrefix(out, tt.wantPrefix) {
+				t.Fatalf("unexpected output: %s", out)
+			}
+		})
+	}
+}
+
+func TestRunLogsLifecycle(t *testing.T) {
+	cfg := config.Default()
+	cfg.Host = "127.0.0.1"
+	cfg.Port = freePort(t)
+	cfg.Folder = setupTestFolder(t)
+	cfg.Debug = true
+
+	var buf syncBuffer
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() { errCh <- run(ctx, cfg, NewLogger(&buf, cfg)) }()
+	waitForServer(t, http.DefaultClient, fmt.Sprintf("http://127.0.0.1:%d/test.txt", cfg.Port))
+	cancel()
+	if err := <-errCh; err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	for _, want := range []string{"msg=configuration", "msg=serving", "msg=request", `msg="shutting down"`, `msg="server stopped"`} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("log missing %q: %s", want, buf.String())
+		}
+	}
+}
+
+// syncBuffer is a bytes.Buffer safe for the concurrent writes of a running server.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }

@@ -4,9 +4,8 @@ package handler
 import (
 	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,7 +20,7 @@ import (
 
 // Build creates the complete HTTP handler chain from configuration.
 // Middleware order (outer to inner): logging → prefix → accessKey → referrer → CORS → customHeaders → compression → dotFiles → securityHeaders → fileHandler
-func Build(cfg *config.Config) http.Handler {
+func Build(cfg *config.Config, logger *slog.Logger) http.Handler {
 	var handler http.Handler
 
 	// Base handler: file serving with index/listing/SPA control
@@ -70,7 +69,7 @@ func Build(cfg *config.Config) http.Handler {
 	}
 
 	if cfg.Debug {
-		handler = withLogging(handler, cfg.LogFormat)
+		handler = withLogging(handler, logger)
 	}
 
 	// Wrap with health check and optional metrics (bypass all middleware)
@@ -433,49 +432,30 @@ func withPrefix(next http.Handler, prefix string) http.Handler {
 	})
 }
 
-// logEntry holds structured log data for JSON output.
-type logEntry struct {
-	Time       string `json:"time"`
-	Remote     string `json:"remote"`
-	Method     string `json:"method"`
-	Path       string `json:"path"`
-	Proto      string `json:"proto"`
-	Host       string `json:"host"`
-	Status     int    `json:"status"`
-	DurationMs int64  `json:"duration_ms"`
-	Referer    string `json:"referer,omitempty"`
-}
-
-// withLogging logs each request with response status and elapsed time to stderr.
-func withLogging(next http.Handler, format string) http.Handler {
-	logger := log.New(os.Stderr, "", log.LstdFlags)
-	jsonLogger := log.New(os.Stderr, "", 0)
-
+// withLogging logs each request with its response status and elapsed time.
+func withLogging(next http.Handler, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		rec := httpx.NewRecorder(w)
 		next.ServeHTTP(rec, r)
-		elapsed := time.Since(start)
 
-		if format == "json" {
-			entry := logEntry{
-				Time:       start.UTC().Format(time.RFC3339),
-				Remote:     r.RemoteAddr,
-				Method:     r.Method,
-				Path:       r.URL.Path,
-				Proto:      r.Proto,
-				Host:       r.Host,
-				Status:     rec.Status,
-				DurationMs: elapsed.Milliseconds(),
-				Referer:    r.Referer(),
-			}
-			if data, err := json.Marshal(entry); err == nil {
-				jsonLogger.Println(string(data))
-			}
-		} else {
-			logger.Printf("%s %s %s %s %s %d %s referer=%q",
-				r.RemoteAddr, r.Method, r.Proto, r.Host, r.URL.Path,
-				rec.Status, elapsed, r.Referer())
+		if !logger.Enabled(r.Context(), slog.LevelInfo) {
+			return
 		}
+		// Stamped with the start time, as the pre-slog request log was.
+		rec2 := slog.NewRecord(start, slog.LevelInfo, "request", 0)
+		rec2.AddAttrs(
+			slog.String("remote", r.RemoteAddr),
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.String("proto", r.Proto),
+			slog.String("host", r.Host),
+			slog.Int("status", rec.Status),
+			slog.Int64("duration_ms", time.Since(start).Milliseconds()),
+		)
+		if ref := r.Referer(); ref != "" {
+			rec2.AddAttrs(slog.String("referer", ref))
+		}
+		_ = logger.Handler().Handle(r.Context(), rec2)
 	})
 }

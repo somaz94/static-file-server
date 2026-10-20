@@ -41,7 +41,7 @@ YAML keys use the same names in kebab case: `s3-enabled`, `s3-port`, `s3-folder`
 
 The total cap is soft: it is enforced on each janitor run, so the store can exceed it by what is uploaded within one interval. An upload larger than the cap itself is rejected immediately.
 
-When `TLS_CERT` / `TLS_KEY` are set, the endpoint serves HTTPS with the same certificate. `DEBUG=true` logs one line per request; denied requests are always logged with the reason, never with the signature.
+When `TLS_CERT` / `TLS_KEY` are set, the endpoint serves HTTPS with the same certificate. `DEBUG=true` logs one line per request and each denied request with its reason (never the signature); without it, denials show only in `static_file_server_s3_requests_total{status="403"}`.
 
 <br/>
 
