@@ -295,6 +295,8 @@ func TestWithPrefix(t *testing.T) {
 		{"/api/file.txt", http.StatusOK, "/file.txt"},
 		{"/api", http.StatusOK, "/"},
 		{"/other", http.StatusNotFound, ""},
+		{"/apifile.txt", http.StatusNotFound, ""}, // prefix must end at a path boundary
+		{"/api-v2/file.txt", http.StatusNotFound, ""},
 	}
 
 	for _, tt := range tests {
@@ -1002,5 +1004,65 @@ func TestDirectoryWithoutSlashRedirects(t *testing.T) {
 				t.Errorf("unexpected Location %q", loc)
 			}
 		})
+	}
+}
+
+func TestIndexHTMLServedDirectly(t *testing.T) {
+	dir := setupTestDir(t)
+	handlers := map[string]http.Handler{
+		"basic":   basic(dir),
+		"listing": listing(dir, false),
+	}
+	for name, h := range handlers {
+		for path, body := range map[string]string{"/index.html": "<html>index</html>", "/indexed/index.html": "<html>subindex</html>"} {
+			t.Run(name+path, func(t *testing.T) {
+				w := httptest.NewRecorder()
+				h.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
+				if w.Code != http.StatusOK || w.Body.String() != body {
+					t.Fatalf("got %d %q (Location %q)", w.Code, w.Body.String(), w.Header().Get("Location"))
+				}
+			})
+		}
+	}
+}
+
+func TestIndexModeRedirectsDirectoryWithoutSlash(t *testing.T) {
+	dir := setupTestDir(t)
+	h := index(dir)
+
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "/indexed", nil))
+	if w.Code != http.StatusMovedPermanently || w.Header().Get("Location") != "indexed/" {
+		t.Fatalf("expected 301 to indexed/, got %d %q", w.Code, w.Header().Get("Location"))
+	}
+
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "/subdir", nil))
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("directory without index.html: expected 404, got %d", w.Code)
+	}
+}
+
+func TestServeFileRejectsMissingAndDirectories(t *testing.T) {
+	dir := setupTestDir(t)
+	for _, p := range []string{filepath.Join(dir, "missing.txt"), filepath.Join(dir, "subdir")} {
+		w := httptest.NewRecorder()
+		serveFile(w, httptest.NewRequest("GET", "/x", nil), p)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("serveFile(%s): expected 404, got %d", p, w.Code)
+		}
+	}
+}
+
+func TestWithMetricsBoundsMethodLabel(t *testing.T) {
+	h := withMetrics(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	for _, m := range []string{"XYZRANDOM1", "XYZRANDOM2", "PROPFIND"} {
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(m, "/", nil))
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
+	body := w.Body.String()
+	if !strings.Contains(body, `static_file_server_requests_total{method="OTHER",status="200"} 3`) || strings.Contains(body, "XYZRANDOM") {
+		t.Fatalf("unknown methods must collapse into OTHER:\n%s", body)
 	}
 }

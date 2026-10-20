@@ -346,3 +346,16 @@ func TestMetricsDisabled(t *testing.T) {
 		t.Fatalf("/metrics with METRICS off should be an unsigned bucket request (403), got %d", w.Code)
 	}
 }
+
+func TestMetricsBoundMethodLabel(t *testing.T) {
+	s := newTestServer(t, func(o *Options) { o.Metrics = true })
+	for _, m := range []string{"XYZRANDOM1", "XYZRANDOM2"} {
+		s.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(m, "http://"+testHost+"/b-1/k", nil))
+	}
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	body := w.Body.String()
+	if !strings.Contains(body, `static_file_server_s3_requests_total{method="OTHER",status="403"} 2`) || strings.Contains(body, "XYZRANDOM") {
+		t.Fatalf("unknown methods must collapse into OTHER:\n%s", body)
+	}
+}

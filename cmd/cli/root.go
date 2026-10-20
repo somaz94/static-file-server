@@ -2,9 +2,6 @@
 package cli
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"github.com/somaz94/static-file-server/internal/config"
@@ -37,7 +34,6 @@ func Execute() error {
 func runServe(cmd *cobra.Command, args []string) error {
 	cfg, err := config.Load(cfgFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return err
 	}
 

@@ -9,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/somaz94/static-file-server/internal/httpx"
 )
 
 // metricsCollector tracks request metrics without external dependencies.
@@ -134,8 +136,8 @@ func withMetrics(next http.Handler) http.Handler {
 		}
 
 		start := time.Now()
-		rec := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
+		rec := httpx.NewRecorder(w)
 		next.ServeHTTP(rec, r)
-		collector.record(r.Method, rec.status, time.Since(start), rec.bytes)
+		collector.record(httpx.MetricMethod(r.Method), rec.Status, time.Since(start), rec.Bytes)
 	})
 }

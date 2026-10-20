@@ -19,7 +19,6 @@ import (
 
 const (
 	readTimeout  = 10 * time.Second
-	writeTimeout = 30 * time.Second
 	idleTimeout  = 120 * time.Second
 	shutdownWait = 10 * time.Second
 
@@ -44,11 +43,12 @@ func Run(cfg *config.Config) error {
 	addr := cfg.ListenAddr()
 
 	srv := &http.Server{
-		Addr:         addr,
-		Handler:      h,
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
-		IdleTimeout:  idleTimeout,
+		Addr:    addr,
+		Handler: h,
+		// No WriteTimeout: it caps the whole response, so it cut off any download slower than its value.
+		ReadHeaderTimeout: readTimeout,
+		ReadTimeout:       readTimeout,
+		IdleTimeout:       idleTimeout,
 	}
 
 	servers := []namedServer{{srv: srv, label: cfg.Folder}}

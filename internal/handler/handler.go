@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/somaz94/static-file-server/internal/config"
+	"github.com/somaz94/static-file-server/internal/httpx"
 )
 
 // Build creates the complete HTTP handler chain from configuration.
@@ -159,7 +160,7 @@ func basic(folder string) http.HandlerFunc {
 			return
 		}
 
-		http.ServeFile(w, r, fpath)
+		serveFile(w, r, fpath)
 	}
 }
 
@@ -182,14 +183,17 @@ func index(folder string) http.HandlerFunc {
 		if info.IsDir() {
 			indexPath := filepath.Join(fpath, "index.html")
 			if _, err := os.Stat(indexPath); err == nil {
-				http.ServeFile(w, r, indexPath)
+				if redirectToSlash(w, r) {
+					return
+				}
+				serveFile(w, r, indexPath)
 				return
 			}
 			http.NotFound(w, r)
 			return
 		}
 
-		http.ServeFile(w, r, fpath)
+		serveFile(w, r, fpath)
 	}
 }
 
@@ -223,7 +227,7 @@ func listing(folder string, hideDot bool) http.HandlerFunc {
 			return
 		}
 
-		http.ServeFile(w, r, fpath)
+		serveFile(w, r, fpath)
 	}
 }
 
@@ -261,15 +265,33 @@ func listingAndIndex(folder string, hideDot bool) http.HandlerFunc {
 			}
 			indexPath := filepath.Join(fpath, "index.html")
 			if _, err := os.Stat(indexPath); err == nil {
-				http.ServeFile(w, r, indexPath)
+				serveFile(w, r, indexPath)
 				return
 			}
 			renderListing(w, r, fpath, r.URL.Path, hideDot)
 			return
 		}
 
-		http.ServeFile(w, r, fpath)
+		serveFile(w, r, fpath)
 	}
+}
+
+// serveFile serves a regular file. http.ServeFile is avoided because it redirects every
+// request path ending in /index.html to ./, which 404s in basic mode and loops back to
+// the listing in listing mode.
+func serveFile(w http.ResponseWriter, r *http.Request, fpath string) {
+	f, err := os.Open(fpath)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil || info.IsDir() {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
 }
 
 // redirectToSlash sends a directory request without a trailing slash to the
@@ -301,14 +323,14 @@ func spa(folder string) http.HandlerFunc {
 			// Fallback to root index.html for SPA routing.
 			indexPath := filepath.Join(folder, "index.html")
 			if _, err := os.Stat(indexPath); err == nil {
-				http.ServeFile(w, r, indexPath)
+				serveFile(w, r, indexPath)
 				return
 			}
 			http.NotFound(w, r)
 			return
 		}
 
-		http.ServeFile(w, r, fpath)
+		serveFile(w, r, fpath)
 	}
 }
 
@@ -391,11 +413,13 @@ func withAccessKey(next http.Handler, accessKey string) http.Handler {
 // withPrefix strips a URL prefix and returns 404 if the prefix doesn't match.
 func withPrefix(next http.Handler, prefix string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, prefix) {
+		rest, ok := strings.CutPrefix(r.URL.Path, prefix)
+		// Without the boundary check, prefix /api would also strip /apifile.txt.
+		if !ok || (rest != "" && rest[0] != '/') {
 			http.NotFound(w, r)
 			return
 		}
-		r.URL.Path = strings.TrimPrefix(r.URL.Path, prefix)
+		r.URL.Path = rest
 		if r.URL.Path == "" {
 			r.URL.Path = "/"
 		}
@@ -407,31 +431,6 @@ func withPrefix(next http.Handler, prefix string) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
-}
-
-// responseRecorder wraps http.ResponseWriter to capture the status code and bytes written.
-type responseRecorder struct {
-	http.ResponseWriter
-	status int
-	bytes  int64
-}
-
-func (rr *responseRecorder) WriteHeader(code int) {
-	rr.status = code
-	rr.ResponseWriter.WriteHeader(code)
-}
-
-func (rr *responseRecorder) Write(b []byte) (int, error) {
-	n, err := rr.ResponseWriter.Write(b)
-	rr.bytes += int64(n)
-	return n, err
-}
-
-// Flush implements http.Flusher by delegating to the underlying ResponseWriter.
-func (rr *responseRecorder) Flush() {
-	if f, ok := rr.ResponseWriter.(http.Flusher); ok {
-		f.Flush()
-	}
 }
 
 // logEntry holds structured log data for JSON output.
@@ -454,7 +453,7 @@ func withLogging(next http.Handler, format string) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		rec := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
+		rec := httpx.NewRecorder(w)
 		next.ServeHTTP(rec, r)
 		elapsed := time.Since(start)
 
@@ -466,7 +465,7 @@ func withLogging(next http.Handler, format string) http.Handler {
 				Path:       r.URL.Path,
 				Proto:      r.Proto,
 				Host:       r.Host,
-				Status:     rec.status,
+				Status:     rec.Status,
 				DurationMs: elapsed.Milliseconds(),
 				Referer:    r.Referer(),
 			}
@@ -476,7 +475,7 @@ func withLogging(next http.Handler, format string) http.Handler {
 		} else {
 			logger.Printf("%s %s %s %s %s %d %s referer=%q",
 				r.RemoteAddr, r.Method, r.Proto, r.Host, r.URL.Path,
-				rec.status, elapsed, r.Referer())
+				rec.Status, elapsed, r.Referer())
 		}
 	})
 }

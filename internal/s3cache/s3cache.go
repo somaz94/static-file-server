@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/somaz94/static-file-server/internal/httpx"
 )
 
 // Options configures the S3 cache endpoint.
@@ -50,12 +52,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+	rec := httpx.NewRecorder(w)
 	start := time.Now()
 	s.serve(rec, r)
-	s.metrics.recordRequest(r.Method, rec.status, rec.bytes)
+	s.metrics.recordRequest(httpx.MetricMethod(r.Method), rec.Status, rec.Bytes)
 	if s.opts.Debug {
-		log.Printf("s3cache %s %s %d %s", r.Method, r.URL.Path, rec.status, time.Since(start))
+		log.Printf("s3cache %s %s %d %s", r.Method, r.URL.Path, rec.Status, time.Since(start))
 	}
 }
 
@@ -171,21 +173,4 @@ func userMeta(h http.Header) map[string]string {
 		}
 	}
 	return m
-}
-
-type statusRecorder struct {
-	http.ResponseWriter
-	status int
-	bytes  int64
-}
-
-func (r *statusRecorder) WriteHeader(code int) {
-	r.status = code
-	r.ResponseWriter.WriteHeader(code)
-}
-
-func (r *statusRecorder) Write(b []byte) (int, error) {
-	n, err := r.ResponseWriter.Write(b)
-	r.bytes += int64(n)
-	return n, err
 }
