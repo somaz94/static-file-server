@@ -512,7 +512,7 @@ func TestRenderListingJSON(t *testing.T) {
 	}
 
 	// Verify metadata of a file entry.
-	var goEntry *listingJSONEntry
+	var goEntry *ListingEntry
 	for i := range resp.Entries {
 		if resp.Entries[i].Name == "main.go" {
 			goEntry = &resp.Entries[i]
@@ -760,5 +760,16 @@ func TestBatchDownloadIntegration(t *testing.T) {
 	}
 	if ct := w.Header().Get("Content-Type"); ct != "application/zip" {
 		t.Errorf("expected application/zip, got %s", ct)
+	}
+}
+
+// Pins the output contract: buildListingData must return a non-nil slice.
+func TestRenderListingJSONEmptyDir(t *testing.T) {
+	req := httptest.NewRequest("GET", "/?format=json", nil)
+	w := httptest.NewRecorder()
+	renderListing(w, req, t.TempDir(), "/", false)
+
+	if !strings.Contains(w.Body.String(), `"entries": []`) {
+		t.Errorf("empty directory should list entries as [], got %s", w.Body.String())
 	}
 }

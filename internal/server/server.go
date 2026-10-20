@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -114,7 +113,7 @@ func run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	if cfg.HasTLS() {
 		for _, s := range servers {
 			s.srv.TLSConfig = &tls.Config{
-				MinVersion: parseTLSVersion(cfg.TLSMinVers),
+				MinVersion: cfg.TLSMinVersion(),
 			}
 		}
 	}
@@ -170,18 +169,4 @@ func shutdownAll(servers []namedServer) error {
 	}
 	wg.Wait()
 	return errors.Join(errs...)
-}
-
-// parseTLSVersion converts a version string to a tls.Version constant.
-func parseTLSVersion(s string) uint16 {
-	switch strings.ToUpper(strings.TrimSpace(s)) {
-	case "TLS11":
-		return tls.VersionTLS11
-	case "TLS12":
-		return tls.VersionTLS12
-	case "TLS13":
-		return tls.VersionTLS13
-	default:
-		return tls.VersionTLS12
-	}
 }

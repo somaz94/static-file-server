@@ -3,6 +3,7 @@
 package config
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -237,13 +238,8 @@ func (c *Config) validate() error {
 		return fmt.Errorf("both TLS_CERT and TLS_KEY must be set together")
 	}
 
-	if c.TLSMinVers != "" {
-		switch strings.ToUpper(strings.TrimSpace(c.TLSMinVers)) {
-		case "TLS11", "TLS12", "TLS13":
-			// valid
-		default:
-			return fmt.Errorf("invalid TLS_MIN_VERS %q: must be TLS11, TLS12, or TLS13", c.TLSMinVers)
-		}
+	if _, ok := tlsVersions[normalizeTLS(c.TLSMinVers)]; c.TLSMinVers != "" && !ok {
+		return fmt.Errorf("invalid TLS_MIN_VERS %q: must be TLS11, TLS12, or TLS13", c.TLSMinVers)
 	}
 
 	if c.URLPrefix != "" {
@@ -332,6 +328,25 @@ func (c *Config) checkS3FolderNotServed() error {
 		}
 	}
 	return fmt.Errorf("S3_FOLDER %q is served by the file server; move it outside FOLDER or under a dot directory with HIDE_DOT_FILES=true", c.S3Folder)
+}
+
+// tlsVersions maps TLS_MIN_VERS values to crypto/tls versions.
+var tlsVersions = map[string]uint16{
+	"TLS11": tls.VersionTLS11,
+	"TLS12": tls.VersionTLS12,
+	"TLS13": tls.VersionTLS13,
+}
+
+func normalizeTLS(s string) string {
+	return strings.ToUpper(strings.TrimSpace(s))
+}
+
+// TLSMinVersion returns the crypto/tls minimum version, TLS 1.2 when TLS_MIN_VERS is unset.
+func (c *Config) TLSMinVersion() uint16 {
+	if v, ok := tlsVersions[normalizeTLS(c.TLSMinVers)]; ok {
+		return v
+	}
+	return tls.VersionTLS12
 }
 
 // HasTLS returns true if TLS is configured.

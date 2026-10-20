@@ -26,32 +26,6 @@ import (
 	"github.com/somaz94/static-file-server/internal/config"
 )
 
-func TestParseTLSVersion(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected uint16
-	}{
-		{"TLS11", tls.VersionTLS11},
-		{"TLS12", tls.VersionTLS12},
-		{"TLS13", tls.VersionTLS13},
-		{"tls12", tls.VersionTLS12},     // case insensitive
-		{"  TLS13  ", tls.VersionTLS13}, // whitespace trimmed
-		{"", tls.VersionTLS12},          // empty defaults to TLS12
-		{"invalid", tls.VersionTLS12},   // invalid defaults to TLS12
-		{"TLS99", tls.VersionTLS12},     // unknown defaults to TLS12
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := parseTLSVersion(tt.input)
-			if got != tt.expected {
-				t.Errorf("parseTLSVersion(%q): expected 0x%04x, got 0x%04x",
-					tt.input, tt.expected, got)
-			}
-		})
-	}
-}
-
 // freePort finds an available TCP port.
 func freePort(t *testing.T) uint16 {
 	t.Helper()

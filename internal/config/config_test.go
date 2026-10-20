@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"crypto/tls"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -467,5 +468,31 @@ func TestLoadEnvCustomHeaders(t *testing.T) {
 	}
 	if cfg.CustomHeaders["X-Test"] != "hello" {
 		t.Errorf("expected X-Test hello, got %s", cfg.CustomHeaders["X-Test"])
+	}
+}
+
+func TestTLSMinVersion(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected uint16
+	}{
+		{"TLS11", tls.VersionTLS11},
+		{"TLS12", tls.VersionTLS12},
+		{"TLS13", tls.VersionTLS13},
+		{"tls12", tls.VersionTLS12},
+		{"  TLS13  ", tls.VersionTLS13},
+		{"", tls.VersionTLS12},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			cfg := Default()
+			cfg.TLSMinVers = tt.input
+			if got := cfg.TLSMinVersion(); got != tt.expected {
+				t.Errorf("TLSMinVersion(%q) = 0x%04x, want 0x%04x", tt.input, got, tt.expected)
+			}
+			if err := cfg.validate(); err != nil {
+				t.Errorf("validate(%q): %v", tt.input, err)
+			}
+		})
 	}
 }

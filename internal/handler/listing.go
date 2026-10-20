@@ -57,15 +57,15 @@ type Breadcrumb struct {
 
 // ListingEntry represents a file or directory in the listing.
 type ListingEntry struct {
-	Name        string
-	Href        string
-	IsDir       bool
-	Size        string
-	SizeBytes   int64
-	ModTime     string
-	ModTimeUnix int64
-	Ext         string // file category for icon selection (e.g. "image", "code", "archive")
-	RawExt      string // raw file extension without dot (e.g. "go", "py", "tsx")
+	Name        string `json:"name"`
+	Href        string `json:"href"`
+	IsDir       bool   `json:"is_dir"`
+	Size        string `json:"size"`
+	SizeBytes   int64  `json:"size_bytes"`
+	ModTime     string `json:"mod_time"`
+	ModTimeUnix int64  `json:"mod_time_unix"`
+	Ext         string `json:"ext,omitempty"`     // file category for icon selection (e.g. "image", "code", "archive")
+	RawExt      string `json:"raw_ext,omitempty"` // raw file extension without dot (e.g. "go", "py", "tsx")
 }
 
 // fileCategory returns a category string based on file extension for icon display.
@@ -234,27 +234,14 @@ func renderListing(w http.ResponseWriter, r *http.Request, fsPath, urlPath strin
 	_, _ = buf.WriteTo(w)
 }
 
-// listingJSONEntry is a single file or directory in a JSON listing response.
-type listingJSONEntry struct {
-	Name        string `json:"name"`
-	Href        string `json:"href"`
-	IsDir       bool   `json:"is_dir"`
-	Size        string `json:"size"`
-	SizeBytes   int64  `json:"size_bytes"`
-	ModTime     string `json:"mod_time"`
-	ModTimeUnix int64  `json:"mod_time_unix"`
-	Ext         string `json:"ext,omitempty"`
-	RawExt      string `json:"raw_ext,omitempty"`
-}
-
 // listingJSONResponse is the top-level JSON listing payload.
 type listingJSONResponse struct {
-	Path           string             `json:"path"`
-	Entries        []listingJSONEntry `json:"entries"`
-	TotalFiles     int                `json:"total_files"`
-	TotalDirs      int                `json:"total_dirs"`
-	TotalSize      string             `json:"total_size"`
-	TotalSizeBytes int64              `json:"total_size_bytes"`
+	Path           string         `json:"path"`
+	Entries        []ListingEntry `json:"entries"`
+	TotalFiles     int            `json:"total_files"`
+	TotalDirs      int            `json:"total_dirs"`
+	TotalSize      string         `json:"total_size"`
+	TotalSizeBytes int64          `json:"total_size_bytes"`
 }
 
 // renderListingJSON renders a directory listing as JSON.
@@ -269,16 +256,11 @@ func renderListingJSON(w http.ResponseWriter, fsPath, urlPath string, hideDot bo
 
 	resp := listingJSONResponse{
 		Path:           data.Path,
-		Entries:        make([]listingJSONEntry, 0, len(data.Entries)),
+		Entries:        data.Entries,
 		TotalFiles:     data.TotalFiles,
 		TotalDirs:      data.TotalDirs,
 		TotalSize:      data.TotalSize,
 		TotalSizeBytes: data.TotalSizeBytes,
-	}
-	// ListingEntry and listingJSONEntry share an identical field layout
-	// (only struct tags differ), so a direct conversion is safe.
-	for _, e := range data.Entries {
-		resp.Entries = append(resp.Entries, listingJSONEntry(e))
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -357,13 +339,6 @@ func handleBatchDownload(w http.ResponseWriter, r *http.Request, fsPath string, 
 		return
 	}
 
-	// Resolve absolute base path for traversal check.
-	absBase, err := filepath.Abs(fsPath)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-
 	// Pre-validate all files and enforce total size limit.
 	type validFile struct {
 		name string
@@ -373,6 +348,7 @@ func handleBatchDownload(w http.ResponseWriter, r *http.Request, fsPath string, 
 	var totalSize int64
 
 	for _, name := range req.Files {
+		// A bare name (no separator, not "." or "..") cannot resolve outside fsPath.
 		if name == "" || strings.ContainsAny(name, "/\\") || name == ".." || name == "." {
 			continue
 		}
@@ -381,11 +357,6 @@ func handleBatchDownload(w http.ResponseWriter, r *http.Request, fsPath string, 
 		}
 
 		fpath := filepath.Join(fsPath, name)
-		absPath, err := filepath.Abs(fpath)
-		if err != nil || !strings.HasPrefix(absPath, absBase+string(filepath.Separator)) {
-			continue // path traversal attempt
-		}
-
 		info, err := os.Lstat(fpath)
 		if err != nil || info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 			continue // skip dirs and symlinks
