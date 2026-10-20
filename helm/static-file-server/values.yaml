@@ -288,6 +288,14 @@ s3Cache:
     port: 9000
     annotations: {}
 
+# Prometheus Operator ServiceMonitor scraping /metrics on the http port, plus the
+# s3 port when s3Cache is enabled. Requires config.metrics="true".
+serviceMonitor:
+  enabled: false
+  labels: {}         # extra labels, e.g. the release label an operator's serviceMonitorSelector expects
+  interval: ""       # empty uses the Prometheus global scrape interval
+  scrapeTimeout: ""
+
 nodeSelector: {}
 tolerations: []
 affinity: {}

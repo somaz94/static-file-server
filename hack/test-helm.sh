@@ -177,7 +177,28 @@ fi
 echo "  [OK] S3 cache guards reject unsafe values"
 echo ""
 
-# 14. Template render (all example files)
+# 14. ServiceMonitor: one endpoint per metrics port, and refused without metrics
+echo "--- Template (servicemonitor) ---"
+OUT=$(helm template test-release "${CHART_DIR}" \
+    --set config.metrics=true \
+    --set serviceMonitor.enabled=true \
+    --set serviceMonitor.interval=30s \
+    --set serviceMonitor.labels.release=kube-prometheus-stack \
+    --set s3Cache.enabled=true \
+    --set s3Cache.existingSecret=cache-creds)
+echo "$OUT" | grep -q "kind: ServiceMonitor" || { echo "  [FAIL] ServiceMonitor not rendered"; exit 1; }
+echo "$OUT" | grep -q -- "- port: s3" || { echo "  [FAIL] s3 endpoint missing"; exit 1; }
+echo "$OUT" | grep -q "release: kube-prometheus-stack" || { echo "  [FAIL] extra labels missing"; exit 1; }
+if helm template test-release "${CHART_DIR}" --set config.metrics=true --set serviceMonitor.enabled=true | grep -q -- "- port: s3"; then
+    echo "  [FAIL] s3 endpoint rendered without s3Cache"; exit 1
+fi
+if helm template test-release "${CHART_DIR}" --set serviceMonitor.enabled=true > /dev/null 2>&1; then
+    echo "  [FAIL] ServiceMonitor rendered without config.metrics"; exit 1
+fi
+echo "  [OK] ServiceMonitor render and metrics guard"
+echo ""
+
+# 15. Template render (all example files)
 echo "--- Template (example values) ---"
 for f in "${CHART_DIR}"/examples/*.yaml; do
     name=$(basename "$f" .yaml)
@@ -186,5 +207,5 @@ for f in "${CHART_DIR}"/examples/*.yaml; do
 done
 echo ""
 
-TOTAL=$((13 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
+TOTAL=$((14 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
 echo "==> All Helm chart tests passed! (${TOTAL} scenarios)"

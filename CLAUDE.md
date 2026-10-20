@@ -185,4 +185,5 @@ Key features:
 - ConfigMap-based content for small static sites (optional)
 - Security: non-root, no privilege escalation, read-only rootfs
 - Customizable probes, resources, env vars
+- Prometheus ServiceMonitor for both listeners (optional, needs `config.metrics`)
 - Helm test (wget connectivity check)

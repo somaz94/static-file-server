@@ -1,0 +1,33 @@
+{{- if .Values.serviceMonitor.enabled }}
+{{- if ne (toString .Values.config.metrics) "true" }}
+{{- fail "serviceMonitor.enabled requires config.metrics=\"true\": without it neither port serves /metrics" }}
+{{- end }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "static-file-server.fullname" . }}
+  labels:
+    {{- include "static-file-server.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "static-file-server.selectorLabels" . | nindent 6 }}
+  endpoints:
+    {{- $ports := list "http" }}
+    {{- if .Values.s3Cache.enabled }}
+    {{- $ports = append $ports "s3" }}
+    {{- end }}
+    {{- range $ports }}
+    - port: {{ . }}
+      path: /metrics
+      {{- with $.Values.serviceMonitor.interval }}
+      interval: {{ . }}
+      {{- end }}
+      {{- with $.Values.serviceMonitor.scrapeTimeout }}
+      scrapeTimeout: {{ . }}
+      {{- end }}
+    {{- end }}
+{{- end }}

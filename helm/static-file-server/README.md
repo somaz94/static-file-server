@@ -227,6 +227,18 @@ If `existingClaim` is also a served content claim, the render fails unless `subP
 
 <br/>
 
+### Prometheus ServiceMonitor
+
+Requires the Prometheus Operator CRDs and `config.metrics: "true"`; the render fails otherwise. Scrapes `/metrics` on the `http` port, and on the `s3` port when `s3Cache.enabled`.
+
+| Parameter | Description | Default |
+|---|---|---|
+| `serviceMonitor.enabled` | Create a ServiceMonitor | `false` |
+| `serviceMonitor.labels` | Extra labels, e.g. the label your Prometheus `serviceMonitorSelector` matches | `{}` |
+| `serviceMonitor.interval` / `.scrapeTimeout` | Scrape interval and timeout | `""` (Prometheus defaults) |
+
+<br/>
+
 ## Examples
 
 See the [examples/](examples/) directory for ready-to-use value files:

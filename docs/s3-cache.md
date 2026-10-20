@@ -76,6 +76,8 @@ With `METRICS=true`, the cache listener serves Prometheus metrics at `/metrics` 
 
 A steadily rising `evicted_objects_total{reason="size"}` means the cap is too small for the working set.
 
+With the Prometheus Operator, the chart's `serviceMonitor.enabled: true` scrapes both listeners. Each pod reports the gauges for the shared volume, so aggregate them with `max`, not `sum`.
+
 <br/>
 
 ## Runner configuration
