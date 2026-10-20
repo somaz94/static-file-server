@@ -27,11 +27,21 @@ testdata/
 .vscode/
 .idea/
 
-# Test files
-*_test.go
-coverage.out
+# Test files and coverage output, at any depth
+**/*_test.go
+**/testdata/
+*.out
 coverage.html
 
 # Docker artifacts
-Dockerfile.cross
+Dockerfile*
 .dockerignore
+
+# Local config and tooling (not needed for the build; .env may hold secrets)
+.env
+.env.*
+.find-sensitive-allow
+.golangci.yml
+Makefile
+cliff.toml
+.DS_Store

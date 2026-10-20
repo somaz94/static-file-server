@@ -146,27 +146,23 @@ docker-push: ## Push docker image
 
 .PHONY: docker-buildx-tag
 docker-buildx-tag: ## Build and push multi-arch image with version tag
-	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
 	- $(CONTAINER_TOOL) buildx create --name $(APP_NAME)-builder
 	$(CONTAINER_TOOL) buildx use $(APP_NAME)-builder
 	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) \
 		$(DOCKER_BUILD_ARGS) \
 		--tag ${IMG} \
-		-f Dockerfile.cross .
+		-f Dockerfile .
 	- $(CONTAINER_TOOL) buildx rm $(APP_NAME)-builder
-	rm Dockerfile.cross
 
 .PHONY: docker-buildx-latest
 docker-buildx-latest: ## Build and push multi-arch image with latest tag
-	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
 	- $(CONTAINER_TOOL) buildx create --name $(APP_NAME)-builder
 	$(CONTAINER_TOOL) buildx use $(APP_NAME)-builder
 	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) \
 		$(DOCKER_BUILD_ARGS) \
 		--tag $(shell echo ${IMG} | cut -f1 -d:):latest \
-		-f Dockerfile.cross .
+		-f Dockerfile .
 	- $(CONTAINER_TOOL) buildx rm $(APP_NAME)-builder
-	rm Dockerfile.cross
 
 .PHONY: docker-buildx
 docker-buildx: ## Build and push both version and latest tags

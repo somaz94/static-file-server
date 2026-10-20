@@ -26,9 +26,6 @@ go.work.sum
 # env file
 .env
 
-# Docker cross-build artifact
-Dockerfile.cross
-
 # OS files
 .DS_Store
 

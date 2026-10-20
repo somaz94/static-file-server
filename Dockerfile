@@ -1,5 +1,7 @@
-# Build the static-file-server binary
-FROM golang:1.27 AS builder
+# syntax=docker/dockerfile:1
+# Build the static-file-server binary. The builder runs natively and cross-compiles via
+# TARGETOS/TARGETARCH, so the arm64 image is not compiled under QEMU emulation.
+FROM --platform=$BUILDPLATFORM golang:1.27 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=dev
@@ -30,8 +32,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       -X github.com/somaz94/static-file-server/internal/version.BuildDate=${BUILD_DATE}" \
     -o static-file-server ./cmd/
 
-# Use distroless as minimal base image
-FROM gcr.io/distroless/static:nonroot
+# Pinned by Debian release and digest: the unversioned static tag moves to a new Debian
+# release silently, and Dependabot can only bump what is pinned.
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:e2e927ec666bae08560abb3c55d0659eceabb657f56b6782ab500a9fc7f555e3
 ARG VERSION=dev
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
