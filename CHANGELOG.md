@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.9.0](https://github.com/somaz94/static-file-server/compare/v0.8.0...v0.9.0) (2026-10-20)
+
+### Features
+
+- add a cache-only mode for a dedicated runner cache deployment ([c23f4f0](https://github.com/somaz94/static-file-server/commit/c23f4f0c6946c1256d4c154627b5674997b2dc38))
+
+### Bug Fixes
+
+- **helm:** close cache-claim guard gaps and fix readOnly, TLS probes and targetPort ([b60d13e](https://github.com/somaz94/static-file-server/commit/b60d13e667537cdb95bfa3e799739d363cfc6274))
+- stop cutting slow downloads, print exit errors and bound metric labels ([3a52c33](https://github.com/somaz94/static-file-server/commit/3a52c331c97cccc83c0b56ebcc4a6210a7d05ae1))
+
+### Builds
+
+- cross-compile natively and pin the distroless base ([206a77f](https://github.com/somaz94/static-file-server/commit/206a77fa00abdb5ceea5f2b026668ac18061e956))
+
+### Chores
+
+- bump version to v0.9.0 ([4640179](https://github.com/somaz94/static-file-server/commit/4640179ecfd0bd86a30e833f4823f0dbbd7d25e6))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.8.0](https://github.com/somaz94/static-file-server/compare/v0.7.2...v0.8.0) (2026-10-20)
 
 ### Features
