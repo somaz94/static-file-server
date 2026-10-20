@@ -7,6 +7,9 @@ To verify the installation:
 1. Check if the pod is running:
    kubectl get pods -l "app.kubernetes.io/name={{ include "static-file-server.name" . }},app.kubernetes.io/instance={{ .Release.Name }}"
 
+{{- if include "static-file-server.cacheOnly" . }}
+2. Cache-only mode: no file server; only the cache endpoint below is served.
+{{- else }}
 2. Access the server:
 {{- if .Values.ingress.enabled }}
 {{- range $host := .Values.ingress.hosts }}
@@ -22,6 +25,7 @@ To verify the installation:
 {{- else }}
    kubectl port-forward svc/{{ include "static-file-server.fullname" . }} 8080:{{ .Values.service.port }}
    echo http://localhost:8080
+{{- end }}
 {{- end }}
 
 3. View logs:

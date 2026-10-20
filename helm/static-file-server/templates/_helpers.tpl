@@ -60,6 +60,25 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
+"true" in cache-only mode, empty otherwise. Validates mode and the values it excludes.
+*/}}
+{{- define "static-file-server.cacheOnly" -}}
+{{- $mode := .Values.mode | default "all" -}}
+{{- if not (has $mode (list "all" "cache")) }}
+{{- fail (printf "mode must be \"all\" or \"cache\", got %q" $mode) }}
+{{- end }}
+{{- if eq $mode "cache" }}
+{{- if not .Values.s3Cache.enabled }}
+{{- fail "mode: cache requires s3Cache.enabled=true" }}
+{{- end }}
+{{- if or .Values.httproute.enabled .Values.ingress.enabled }}
+{{- fail "mode: cache serves no files: disable httproute and ingress" }}
+{{- end -}}
+true
+{{- end }}
+{{- end }}
+
+{{/*
 Name of the content claim used by persistence (chart-created or existing).
 */}}
 {{- define "static-file-server.dataClaimName" -}}

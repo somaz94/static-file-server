@@ -253,6 +253,11 @@ extraVolumeMounts: []
 #     mountPath: /extra
 #     readOnly: true
 
+# What the pod serves: "all" (file server, plus the cache endpoint when s3Cache is
+# enabled) or "cache" (only the cache endpoint: no file listener, content volumes,
+# file Service, Ingress or HTTPRoute). "cache" requires s3Cache.enabled=true.
+mode: all
+
 # ---------------------------------------------------------------------------
 # GitLab Runner cache endpoint (S3 presigned subset), see docs/s3-cache.md.
 # Runs on its own port and Service; the file server stays read-only.

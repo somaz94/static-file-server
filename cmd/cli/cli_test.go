@@ -72,3 +72,19 @@ func TestInvalidConfig(t *testing.T) {
 		t.Errorf("error should mention config, got: %v", err)
 	}
 }
+
+func TestCacheSubcommandRequiresS3Settings(t *testing.T) {
+	t.Setenv("S3_FOLDER", "")
+	rootCmd.SetArgs([]string{"cache"})
+	err := Execute()
+	if err == nil || !strings.Contains(err.Error(), "S3_FOLDER") {
+		t.Fatalf("expected an S3_FOLDER error, got %v", err)
+	}
+}
+
+func TestCacheSubcommandInvalidConfig(t *testing.T) {
+	rootCmd.SetArgs([]string{"cache", "--config", "/nonexistent/path/config.yaml"})
+	if err := Execute(); err == nil {
+		t.Fatal("expected an error for a missing config file")
+	}
+}

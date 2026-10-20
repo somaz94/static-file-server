@@ -1,0 +1,34 @@
+# Example: a dedicated GitLab Runner cache release (mode: cache)
+#
+# No file server, content volumes, file Service or routes: only the cache endpoint on
+# its own Service, so the cache volume and credentials stay out of any public pod.
+#
+# Create the credentials first:
+#   kubectl create secret generic runner-cache-s3 \
+#     --from-literal=accessKey=runner --from-literal=secretKey="$(openssl rand -hex 32)"
+#
+# Usage:
+#   helm install runner-cache ./helm/static-file-server -f helm/static-file-server/examples/runner-cache.yaml
+#   # runner ServerAddress: runner-cache-static-file-server-s3.<namespace>.svc:9000
+
+mode: cache
+replicaCount: 2
+
+config:
+  metrics: "true"
+
+serviceMonitor:
+  enabled: true
+
+s3Cache:
+  enabled: true
+  existingSecret: runner-cache-s3
+  buckets: runner-cache
+  ttl: 336h
+  maxObjectSize: "5368709120"
+  maxTotalSize: "53687091200"
+  persistence:
+    enabled: true
+    storageClass: nfs-client       # <-- Replace with your RWX storage class
+    accessMode: ReadWriteMany
+    size: 50Gi

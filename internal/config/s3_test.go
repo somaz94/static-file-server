@@ -159,3 +159,27 @@ func TestS3MaxTotalSize(t *testing.T) {
 		t.Fatalf("summary missing S3MaxTotalSize:\n%s", c.Summary())
 	}
 }
+
+func TestEnableCacheOnly(t *testing.T) {
+	cfg := Default()
+	if err := cfg.EnableCacheOnly(); err == nil || !strings.Contains(err.Error(), "S3_FOLDER") {
+		t.Fatalf("missing S3 settings: expected an S3_FOLDER error, got %v", err)
+	}
+	if !cfg.CacheOnly || !cfg.S3Enabled {
+		t.Fatal("EnableCacheOnly must turn on CacheOnly and S3Enabled")
+	}
+
+	// No file server listens or serves, so a shared port and a cache inside FOLDER are fine.
+	cfg = Default()
+	cfg.S3Port = cfg.Port
+	cfg.S3Folder = filepath.Join(cfg.Folder, "cache")
+	cfg.S3AccessKey, cfg.S3SecretKey = "ak", "sk"
+	if err := cfg.EnableCacheOnly(); err != nil {
+		t.Fatalf("cache-only must skip the PORT and FOLDER checks: %v", err)
+	}
+
+	cfg.S3Port = 0
+	if err := cfg.EnableCacheOnly(); err == nil {
+		t.Fatal("S3_PORT 0 must still be rejected")
+	}
+}

@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -389,5 +390,48 @@ func TestRunS3PortInUse(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Run did not fail on a taken S3 port")
+	}
+}
+
+func TestRunCacheOnly(t *testing.T) {
+	cfg := config.Default()
+	cfg.Host = "127.0.0.1"
+	cfg.Port = freePort(t)
+	s3Port := freePort(t)
+	cfg.S3Port = s3Port
+	cfg.S3Folder = t.TempDir()
+	cfg.S3AccessKey = "ak"
+	cfg.S3SecretKey = "sk"
+	if err := cfg.EnableCacheOnly(); err != nil {
+		t.Fatal(err)
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- Run(cfg)
+	}()
+
+	waitForServer(t, http.DefaultClient, fmt.Sprintf("http://127.0.0.1:%d/healthz", s3Port))
+	if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", cfg.Port), time.Second); err == nil {
+		conn.Close()
+		t.Error("cache-only mode must not start the file server")
+	}
+
+	syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Errorf("expected nil error from graceful shutdown, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("cache-only server did not shut down within 5 seconds")
+	}
+}
+
+func TestRunNothingToServe(t *testing.T) {
+	cfg := config.Default()
+	cfg.CacheOnly = true
+	if err := Run(cfg); err == nil || !strings.Contains(err.Error(), "nothing to serve") {
+		t.Fatalf("expected a nothing-to-serve error, got %v", err)
 	}
 }

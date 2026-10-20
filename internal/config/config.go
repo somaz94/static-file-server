@@ -44,6 +44,9 @@ type Config struct {
 	S3TTL           time.Duration `yaml:"s3-ttl"`
 	S3MaxObjectSize int64         `yaml:"s3-max-object-size"`
 	S3MaxTotalSize  int64         `yaml:"s3-max-total-size"`
+
+	// CacheOnly runs the S3 cache endpoint without the file server; set by the cache subcommand.
+	CacheOnly bool `yaml:"-"`
 }
 
 // Default returns a Config with default values matching halverneus behavior.
@@ -243,23 +246,35 @@ func (c *Config) validate() error {
 	return nil
 }
 
-// validateS3 checks the S3 cache endpoint settings.
+// EnableCacheOnly switches to serving only the S3 cache endpoint, so the S3 settings
+// become required whether or not S3_ENABLED was set.
+func (c *Config) EnableCacheOnly() error {
+	c.CacheOnly = true
+	c.S3Enabled = true
+	return c.validateS3()
+}
+
+// validateS3 checks the S3 cache endpoint settings. The checks against PORT and FOLDER
+// are skipped in cache-only mode, where no file server listens or serves.
 func (c *Config) validateS3() error {
 	switch {
 	case c.S3Port == 0:
 		return fmt.Errorf("S3_PORT must be a valid port number (1-65535)")
-	case c.S3Port == c.Port:
+	case !c.CacheOnly && c.S3Port == c.Port:
 		return fmt.Errorf("S3_PORT must differ from PORT")
 	case c.S3Folder == "":
-		return fmt.Errorf("S3_FOLDER is required when S3_ENABLED=true")
+		return fmt.Errorf("S3_FOLDER is required for the S3 cache endpoint")
 	case c.S3AccessKey == "" || c.S3SecretKey == "":
-		return fmt.Errorf("S3_ACCESS_KEY and S3_SECRET_KEY are required when S3_ENABLED=true")
+		return fmt.Errorf("S3_ACCESS_KEY and S3_SECRET_KEY are required for the S3 cache endpoint")
 	case c.S3TTL < 0:
 		return fmt.Errorf("S3_TTL must not be negative")
 	case c.S3MaxObjectSize < 0:
 		return fmt.Errorf("S3_MAX_OBJECT_SIZE must not be negative")
 	case c.S3MaxTotalSize < 0:
 		return fmt.Errorf("S3_MAX_TOTAL_SIZE must not be negative")
+	}
+	if c.CacheOnly {
+		return nil
 	}
 	return c.checkS3FolderNotServed()
 }

@@ -40,7 +40,7 @@ A lightweight, zero-dependency static file server written in Go with a modern di
 - [CORS & custom headers](docs/cors-and-headers.md) / TLS/HTTPS / access control
 - Prometheus metrics (`/metrics`) / JSON logging / `/healthz` health check
 - Dot file filtering (`.env`, `.git`, etc.)
-- [GitLab Runner cache endpoint](docs/s3-cache.md): presigned S3 GET/HEAD/PUT on a separate port, stored on the same volume
+- [GitLab Runner cache endpoint](docs/s3-cache.md): presigned S3 GET/HEAD/PUT on a separate port, stored on the same volume, or run alone with `static-file-server cache` for a dedicated cache deployment
 
 <br/>
 

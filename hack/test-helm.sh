@@ -235,7 +235,29 @@ fi
 echo "  [OK] Regression guards hold"
 echo ""
 
-# 16. Template render (all example files)
+# 16. Cache-only mode: no file listener, Service, content volume or route
+echo "--- Template (mode: cache) ---"
+OUT=$(helm template test-release "${CHART_DIR}" -f "${CHART_DIR}/examples/runner-cache.yaml")
+grep -q 'args: \["cache"\]' <<<"$OUT" || { echo "  [FAIL] cache args missing"; exit 1; }
+[ "$(grep -c '^kind: Service$' <<<"$OUT")" -eq 1 ] || { echo "  [FAIL] expected only the s3 Service"; exit 1; }
+if grep -q -E -- '- name: http$|name: web-content|- port: http' <<<"$OUT"; then
+    echo "  [FAIL] file-server pieces rendered in cache mode"; exit 1
+fi
+[ "$(grep -c -E '^ +port: s3$' <<<"$OUT")" -eq 2 ] || { echo "  [FAIL] probes must target the s3 port"; exit 1; }
+if helm template test-release "${CHART_DIR}" --set mode=cache > /dev/null 2>&1; then
+    echo "  [FAIL] mode: cache without s3Cache rendered"; exit 1
+fi
+if helm template test-release "${CHART_DIR}" -f "${CHART_DIR}/examples/runner-cache.yaml" \
+    --set httproute.enabled=true --set "httproute.parentRefs[0].name=gw" > /dev/null 2>&1; then
+    echo "  [FAIL] mode: cache with an HTTPRoute rendered"; exit 1
+fi
+if helm template test-release "${CHART_DIR}" --set mode=bogus > /dev/null 2>&1; then
+    echo "  [FAIL] unknown mode rendered"; exit 1
+fi
+echo "  [OK] Cache-only mode render and guards"
+echo ""
+
+# 17. Template render (all example files)
 echo "--- Template (example values) ---"
 for f in "${CHART_DIR}"/examples/*.yaml; do
     name=$(basename "$f" .yaml)
@@ -244,5 +266,5 @@ for f in "${CHART_DIR}"/examples/*.yaml; do
 done
 echo ""
 
-TOTAL=$((15 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
+TOTAL=$((16 + $(ls "${CHART_DIR}"/examples/*.yaml 2>/dev/null | wc -l | tr -d ' ')))
 echo "==> All Helm chart tests passed! (${TOTAL} scenarios)"

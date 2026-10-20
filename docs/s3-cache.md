@@ -122,6 +122,14 @@ The chart adds an `s3` container port and a `<release>-s3` Service. See [example
 
 <br/>
 
+## Cache-only mode
+
+`static-file-server cache` serves only the cache endpoint: the `S3_PORT` listener with its `/healthz` and `/metrics`, and no file server. It reads the same configuration as the root command and turns the endpoint on itself, so `S3_ENABLED` is not needed; `S3_FOLDER`, `S3_ACCESS_KEY` and `S3_SECRET_KEY` are required. The checks that keep `S3_FOLDER` away from `FOLDER` and `S3_PORT` away from `PORT` do not apply, because nothing listens on `PORT` or serves `FOLDER`.
+
+Run the cache as its own deployment when the file server is public. A combined pod gives the public process write access to the cache volume and the signing credentials, restarts the cache whenever the file server changes, and makes both share one resource limit. In the Helm chart, `mode: cache` renders that deployment: args `cache`, only the `s3` port, probes and ServiceMonitor endpoint, and no file Service, content volume, Ingress or HTTPRoute. See [examples/runner-cache.yaml](../helm/static-file-server/examples/runner-cache.yaml).
+
+<br/>
+
 ## Operational notes
 
 - **Replicas.** Several pods can share one `ReadWriteMany` volume: writes are atomic renames, and each pod runs its own sweep. When two sweeps overlap, an object the other pod already deleted still counts as freed, so the pair never evicts more than the cap requires.

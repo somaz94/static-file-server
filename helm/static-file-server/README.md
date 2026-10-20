@@ -207,6 +207,7 @@ Serves the runner's distributed cache (presigned S3 GET/HEAD/PUT) on a separate 
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
+| `mode` | `all`, or `cache` for a cache-only release: no file listener, file Service, content volumes, Ingress or HTTPRoute (requires `s3Cache.enabled`) | `all` |
 | `s3Cache.enabled` | Enable the cache endpoint | `false` |
 | `s3Cache.port` | Container port | `9000` |
 | `s3Cache.folder` | Writable object directory in the container | `/cache` |
@@ -228,7 +229,7 @@ If `existingClaim` is also a served content claim, the render fails unless `subP
 
 ### Prometheus ServiceMonitor
 
-Requires the Prometheus Operator CRDs and `config.metrics: "true"`; the render fails otherwise. Scrapes `/metrics` on the `http` port, and on the `s3` port when `s3Cache.enabled`.
+Requires the Prometheus Operator CRDs and `config.metrics: "true"`; the render fails otherwise. Scrapes `/metrics` on the `http` port (not in `mode: cache`), and on the `s3` port when `s3Cache.enabled`.
 
 | Parameter | Description | Default |
 |---|---|---|
@@ -255,6 +256,7 @@ See the [examples/](examples/) directory for ready-to-use value files:
 | HTTPRoute (HTTPS + redirect) | [httproute-https.yaml](examples/httproute-https.yaml) | Gateway API, HTTPS + sibling HTTP→HTTPS 301 |
 | Multi-volume | [multi-volume.yaml](examples/multi-volume.yaml) | NFS + extra ConfigMap volume |
 | Runner cache | [s3-cache.yaml](examples/s3-cache.yaml) | GitLab Runner cache endpoint on a chart-created claim |
+| Runner cache only | [runner-cache.yaml](examples/runner-cache.yaml) | Dedicated cache release (`mode: cache`), no file server |
 
 <br/>
 

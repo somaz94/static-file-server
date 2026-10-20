@@ -4,6 +4,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -32,26 +33,27 @@ type namedServer struct {
 	label string
 }
 
-// Run starts the HTTP or HTTPS server based on configuration.
+// Run starts the file server and, when enabled, the S3 cache endpoint. In cache-only
+// mode only the S3 cache endpoint starts.
 func Run(cfg *config.Config) error {
-	h := handler.Build(cfg)
-
 	if cfg.Debug {
 		fmt.Fprint(os.Stdout, cfg.Summary())
 	}
 
-	addr := cfg.ListenAddr()
-
-	srv := &http.Server{
-		Addr:    addr,
-		Handler: h,
-		// No WriteTimeout: it caps the whole response, so it cut off any download slower than its value.
-		ReadHeaderTimeout: readTimeout,
-		ReadTimeout:       readTimeout,
-		IdleTimeout:       idleTimeout,
+	var servers []namedServer
+	if !cfg.CacheOnly {
+		servers = append(servers, namedServer{
+			srv: &http.Server{
+				Addr:    cfg.ListenAddr(),
+				Handler: handler.Build(cfg),
+				// No WriteTimeout: it caps the whole response, so it cut off any download slower than its value.
+				ReadHeaderTimeout: readTimeout,
+				ReadTimeout:       readTimeout,
+				IdleTimeout:       idleTimeout,
+			},
+			label: cfg.Folder,
+		})
 	}
-
-	servers := []namedServer{{srv: srv, label: cfg.Folder}}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -78,6 +80,10 @@ func Run(cfg *config.Config) error {
 			},
 			label: "S3 cache " + cfg.S3Folder,
 		})
+	}
+
+	if len(servers) == 0 {
+		return errors.New("nothing to serve: cache-only mode requires the S3 cache endpoint")
 	}
 
 	if cfg.HasTLS() {

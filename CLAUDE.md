@@ -7,7 +7,7 @@ Lightweight, zero-dependency static file server written in Go with modern direct
 ## Architecture
 
 - `cmd/` - CLI entry point (Cobra-based)
-- `cmd/cli/` - Command definitions (root serve, version)
+- `cmd/cli/` - Command definitions (root serve, `cache` for the cache endpoint only, version)
 - `internal/config/` - Configuration loading (env vars > YAML > defaults)
 - `internal/handler/` - HTTP handler middleware chain + directory listing
 - `internal/handler/templates/` - Embedded HTML template with icons, search, preview
@@ -139,6 +139,7 @@ make pr title="..."   # Test + push + create PR
 - Janitor (every 10 min, or the TTL if shorter): TTL expiry, then least-recently-used eviction above `S3_MAX_TOTAL_SIZE`, then gauge update. Last use = the later of the data file mtime (upload) and the `.meta` sidecar mtime, which a `GET` / `HEAD` bumps at most hourly. The runner skips re-uploading an unchanged cache, so upload time alone would expire caches in daily use. An object another replica already deleted counts as freed during eviction. With `METRICS=true` the cache listener serves its own `/metrics` (`static_file_server_s3_*`).
 - Config validation rejects an `S3_FOLDER` inside `FOLDER` unless it is under a dot directory with `HIDE_DOT_FILES=true` (cache archives can hold secrets). The Helm chart enforces the same for a shared PVC.
 - Request shapes were checked against the gitlab-runner `cache/s3`, `cache/s3v2` and `commands/helpers/cache_*` sources; re-check them there when the runner changes its cache client.
+- `static-file-server cache` (chart `mode: cache`) runs only this listener, for a cache deployment separate from a public file server; it skips the FOLDER/PORT separation checks since neither is used.
 - Docs: `docs/s3-cache.md`.
 
 <br/>

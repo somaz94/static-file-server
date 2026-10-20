@@ -11,5 +11,9 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
+      {{- if include "static-file-server.cacheOnly" . }}
+      args: ['{{ include "static-file-server.fullname" . }}-s3:{{ .Values.s3Cache.service.port }}/healthz']
+      {{- else }}
       args: ['{{ include "static-file-server.fullname" . }}:{{ .Values.service.port }}']
+      {{- end }}
   restartPolicy: Never
