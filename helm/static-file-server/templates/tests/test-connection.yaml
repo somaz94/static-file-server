@@ -11,7 +11,8 @@ metadata:
     app.kubernetes.io/managed-by: {{ .Release.Service }}
   annotations:
     "helm.sh/hook": test
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    # Kept until the next test run so `helm test --logs` can read it.
+    "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   automountServiceAccountToken: false
   {{- with .Values.imagePullSecrets }}
@@ -43,8 +44,8 @@ spec:
         readOnlyRootFilesystem: true
       command: ['wget']
       {{- if include "static-file-server.cacheOnly" . }}
-      args: ['-q', '-O', '/dev/null'{{ if $tls }}, '--no-check-certificate'{{ end }}, 'http{{ if $tls }}s{{ end }}://{{ include "static-file-server.fullname" . }}-s3:{{ .Values.s3Cache.service.port }}/healthz']
+      args: ['-q', '-O', '-'{{ if $tls }}, '--no-check-certificate'{{ end }}, 'http{{ if $tls }}s{{ end }}://{{ include "static-file-server.fullname" . }}-s3:{{ .Values.s3Cache.service.port }}/healthz']
       {{- else }}
-      args: ['-q', '-O', '/dev/null'{{ if $tls }}, '--no-check-certificate'{{ end }}, 'http{{ if $tls }}s{{ end }}://{{ include "static-file-server.fullname" . }}:{{ .Values.service.port }}/healthz']
+      args: ['-q', '-O', '-'{{ if $tls }}, '--no-check-certificate'{{ end }}, 'http{{ if $tls }}s{{ end }}://{{ include "static-file-server.fullname" . }}:{{ .Values.service.port }}/healthz']
       {{- end }}
   restartPolicy: Never

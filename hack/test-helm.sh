@@ -294,6 +294,9 @@ if grep -q -E 'priorityClassName|terminationGracePeriodSeconds|timeoutSeconds|fa
 fi
 TEST_POD=$(helm template test-release "${CHART_DIR}" -s templates/tests/test-connection.yaml)
 grep -q 'hook-delete-policy' <<<"$TEST_POD" && grep -q '/healthz' <<<"$TEST_POD" || { echo "  [FAIL] test hook incomplete"; exit 1; }
+if grep -q 'hook-succeeded' <<<"$TEST_POD"; then
+    echo "  [FAIL] test pod deleted on success, helm test --logs cannot read it"; exit 1
+fi
 if grep -q 'app.kubernetes.io/name:' <<<"$TEST_POD"; then
     echo "  [FAIL] test pod carries the Service selector labels"; exit 1
 fi
