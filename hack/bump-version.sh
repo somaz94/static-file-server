@@ -9,7 +9,7 @@ set -euo pipefail
 #   make bump-version VERSION=v0.1.0
 #   make version
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 PROJECT_NAME="static-file-server"
