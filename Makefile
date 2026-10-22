@@ -41,7 +41,10 @@ $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 ## Tool Versions
-GOLANGCI_LINT_VERSION ?= v2.1.6
+GOLANGCI_LINT_VERSION ?= v2.15.0
+
+## Coverage gate (percent, total across packages)
+COVERAGE_MIN ?= 90
 
 ## Tool Binaries
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
@@ -90,8 +93,8 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 ##@ Testing
 
 .PHONY: test
-test: ## Run all tests with race detection and coverage
-	go test ./... -v -race -cover
+test: ## Run all tests with race detection and a cross-package coverage profile
+	go test ./... -v -race -coverpkg=./... -coverprofile=coverage.out
 
 .PHONY: test-unit
 test-unit: ## Run unit tests only (internal packages)
@@ -110,6 +113,12 @@ cover: ## Generate HTML coverage report
 	go test ./... -coverprofile=coverage.out
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
+
+.PHONY: cover-check
+cover-check: ## Fail if total coverage in coverage.out is below COVERAGE_MIN
+	@total=$$(go tool cover -func=coverage.out | awk '/^total:/ {sub("%", "", $$3); print $$3}'); \
+	echo "total coverage: $${total}% (minimum $(COVERAGE_MIN)%)"; \
+	awk -v t="$${total}" -v m="$(COVERAGE_MIN)" 'BEGIN { exit (t + 0 < m + 0) }'
 
 ##@ Build
 
@@ -278,7 +287,7 @@ clean: ## Remove build artifacts
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
+	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/v2/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary

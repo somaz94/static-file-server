@@ -177,6 +177,7 @@ testdata/               # Sample files for local deploy testing
 make build            # Build binary
 make test             # Run all tests with race detector
 make cover            # HTML coverage report
+make cover-check      # Fail below 90% total coverage (after make test)
 make lint             # Run golangci-lint
 make deploy-all       # Build + run + smoke test (49 checks)
 make cross-build      # Build for linux/darwin amd64/arm64

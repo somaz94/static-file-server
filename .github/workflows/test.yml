@@ -28,6 +28,9 @@ jobs:
           go mod tidy
           make test
 
+      - name: Coverage gate
+        run: make cover-check
+
       # helm is preinstalled on GitHub-hosted Ubuntu runners.
       - name: Helm chart tests
         run: make test-helm

@@ -156,9 +156,10 @@ make test             # All tests
 make test-unit        # Internal packages only
 make test-integration # Integration (end-to-end HTTP) tests only
 make cover            # HTML coverage report
+make cover-check      # Fail below COVERAGE_MIN (90%) total, reads coverage.out from make test
 ```
 
-CI fails below 90% total coverage; `make cover` shows the current per-package figures. `make test-helm` runs in CI too.
+CI runs `make cover-check` after `make test`, so it fails below 90% total coverage; `make cover` shows the per-package figures. `make test-helm` runs in CI too.
 
 ## CI/CD Workflows
 

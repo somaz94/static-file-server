@@ -5,7 +5,8 @@
 ## Quick Start
 
 ```bash
-make test           # Run all tests
+make test           # Run all tests, writes coverage.out
+make cover-check    # Fail below 90% total coverage
 make test-unit      # Unit tests only (internal packages)
 make test-helm      # Helm chart lint + template render tests
 ```
@@ -20,15 +21,7 @@ Run unit tests with race detection and coverage:
 make test-unit
 ```
 
-Coverage by package:
-
-| Package | Coverage | Description |
-|---------|----------|-------------|
-| `internal/version` | 100% | Build version metadata |
-| `internal/server` | 100% | HTTP/HTTPS server lifecycle, TLS version parsing |
-| `internal/config` | 98.9% | Config loading (env, YAML, defaults), validation |
-| `internal/handler` | 90.3% | Middleware chain, file serving, directory listing |
-| **Total** | **93.5%** | |
+`make test` writes a cross-package profile to `coverage.out`; `make cover-check` fails when the total is below `COVERAGE_MIN` (90%), and CI runs it after `make test`. `make cover` renders the per-package figures as HTML.
 
 <br/>
 
