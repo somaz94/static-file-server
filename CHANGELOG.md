@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased (2026-11-04)
+
+### Bug Fixes
+
+- **helm:** keep the test pod so helm test --logs can read it ([dc393c7](https://github.com/somaz94/static-file-server/commit/dc393c72791d09fd4c0f8df5d1d9735364591914))
+- **hack:** resolve the script directory when bump-version.sh runs under zsh ([fd4737f](https://github.com/somaz94/static-file-server/commit/fd4737feee2f68abac5b9988a8bfd495caf48bfd))
+
+### Builds
+
+- **deps:** bump distroless/static-debian13 from `e2e927e` to `18f4cc2` (#13) ([#13](https://github.com/somaz94/static-file-server/pull/13)) ([cc72155](https://github.com/somaz94/static-file-server/commit/cc72155c2ccea0909a9d5a2f7712f08d2173e9cc))
+
+### Continuous Integration
+
+- enforce the 90% coverage gate and install golangci-lint v2.15.0 from its v2 module ([9520db1](https://github.com/somaz94/static-file-server/commit/9520db18965ea2aea365683d12222611b316a6cb))
+
+### Contributors
+
+- somaz
+
+<br/>
+
 ## [v0.11.1](https://github.com/somaz94/static-file-server/compare/v0.11.0...v0.11.1) (2026-10-20)
 
 ### Bug Fixes
