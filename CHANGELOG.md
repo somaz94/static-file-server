@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased (2026-11-04)
+## Unreleased (2026-11-18)
 
 ### Bug Fixes
 
@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 
 ### Builds
 
+- **deps:** bump distroless/static-debian13 from `18f4cc2` to `25ac8f0` (#14) ([#14](https://github.com/somaz94/static-file-server/pull/14)) ([0ce1a24](https://github.com/somaz94/static-file-server/commit/0ce1a2484ce1b2d6490fd831d8e491c8d82d384a))
 - **deps:** bump distroless/static-debian13 from `e2e927e` to `18f4cc2` (#13) ([#13](https://github.com/somaz94/static-file-server/pull/13)) ([cc72155](https://github.com/somaz94/static-file-server/commit/cc72155c2ccea0909a9d5a2f7712f08d2173e9cc))
 
 ### Continuous Integration
